@@ -60,11 +60,14 @@ interface AppContextType {
   shortlisted: RoommateProfile[];
   loading: boolean;
   profilesLoading: boolean;
+  matchesLoading: boolean;
+  housingLoading: boolean;
   error: string | null;
   clearError: () => void;
   refreshMatches: () => Promise<void>;
   refreshMessages: (matchId: string) => Promise<void>;
   refreshProfiles: () => Promise<void>;
+  refreshHousing: () => Promise<void>;
   socketStatus: SocketStatus;
   setActiveChatMatchId: (matchId: string | null) => void;
 }
@@ -85,6 +88,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [filters, setFiltersState] = useState<FilterSettings>(DEFAULT_FILTERS);
   const [loading, setLoading] = useState(true);
   const [profilesLoading, setProfilesLoading] = useState(false);
+  const [matchesLoading, setMatchesLoading] = useState(false);
+  const [housingLoading, setHousingLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [socketStatus, setSocketStatus] = useState<SocketStatus>('disconnected');
   const [activeChatMatchId, setActiveChatMatchId] = useState<string | null>(null);
@@ -130,7 +135,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (userId && isAuthenticated) {
       refreshMatches();
-      fetchHousing();
+      refreshHousing();
     }
   }, [userId, isAuthenticated]);
 
@@ -327,12 +332,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refreshMatches = useCallback(async () => {
     if (!userId || !isAuthenticated) return;
+    setMatchesLoading(true);
     try {
       const data = await apiFetch<{ matches: Match[] }>('/matches', userId);
       setMatches(data.matches);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load matches';
       setError(msg);
+    } finally {
+      setMatchesLoading(false);
     }
   }, [userId, isAuthenticated]);
 
@@ -353,13 +361,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, isAuthenticated]);
 
-  const fetchHousing = useCallback(async () => {
+  const refreshHousing = useCallback(async () => {
+    setHousingLoading(true);
     try {
       const data = await apiFetch<{ listings: HousingListing[] }>('/housing', userId);
       setHousing(data.listings);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load housing';
       setError(msg);
+    } finally {
+      setHousingLoading(false);
     }
   }, [userId]);
 
@@ -536,11 +547,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       shortlisted,
       loading,
       profilesLoading,
+      matchesLoading,
+      housingLoading,
       error,
       clearError,
       refreshMatches,
       refreshMessages,
       refreshProfiles,
+      refreshHousing,
       socketStatus,
       setActiveChatMatchId,
     }}>

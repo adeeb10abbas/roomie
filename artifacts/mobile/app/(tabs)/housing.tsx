@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, TextInput,
+  Platform, TextInput, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -9,13 +9,14 @@ import { router } from 'expo-router';
 import { useApp } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import HousingCard from '@/components/HousingCard';
+import ErrorBanner from '@/components/ErrorBanner';
 
 type Tab = 'open_room' | 'forming_group';
 
 export default function HousingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { housing } = useApp();
+  const { housing, housingLoading, error, clearError, refreshHousing } = useApp();
   const [activeTab, setActiveTab] = useState<Tab>('open_room');
   const [search, setSearch] = useState('');
 
@@ -46,6 +47,15 @@ export default function HousingScreen() {
           <Feather name="plus" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
+
+      {/* Error Banner */}
+      {error && (
+        <ErrorBanner
+          message={error}
+          onRetry={() => { clearError(); refreshHousing(); }}
+          onDismiss={clearError}
+        />
+      )}
 
       {/* Info Banner */}
       <View style={[styles.infoBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -105,33 +115,42 @@ export default function HousingScreen() {
         )}
       </View>
 
-      <ScrollView
-        style={styles.list}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: bottomPadding }}
-        showsVerticalScrollIndicator={false}
-      >
-        {filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <View style={[styles.emptyIconWrap, { backgroundColor: colors.primaryLight }]}>
-              <Feather name="home" size={32} color={colors.primary} />
+      {housingLoading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+            Loading listings…
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: bottomPadding }}
+          showsVerticalScrollIndicator={false}
+        >
+          {filtered.length === 0 ? (
+            <View style={styles.empty}>
+              <View style={[styles.emptyIconWrap, { backgroundColor: colors.primaryLight }]}>
+                <Feather name="home" size={32} color={colors.primary} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                {activeTab === 'open_room' ? 'No open rooms found' : 'No groups found'}
+              </Text>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                Try a different search or check back soon
+              </Text>
             </View>
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              {activeTab === 'open_room' ? 'No open rooms found' : 'No groups found'}
-            </Text>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              Try a different search or check back soon
-            </Text>
-          </View>
-        ) : (
-          filtered.map(listing => (
-            <HousingCard
-              key={listing.id}
-              listing={listing}
-              onPress={() => router.push(`/housing-detail/${listing.id}`)}
-            />
-          ))
-        )}
-      </ScrollView>
+          ) : (
+            filtered.map(listing => (
+              <HousingCard
+                key={listing.id}
+                listing={listing}
+                onPress={() => router.push(`/housing-detail/${listing.id}`)}
+              />
+            ))
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -200,6 +219,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 14 },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  loadingText: { fontSize: 15 },
   list: { flex: 1 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyIconWrap: {

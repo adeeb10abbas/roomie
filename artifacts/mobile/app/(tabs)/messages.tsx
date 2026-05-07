@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { useApp } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import ConversationItem from '@/components/ConversationItem';
+import ErrorBanner from '@/components/ErrorBanner';
 
 const PROMPT_CHIPS = [
   'Ask about cleanliness',
@@ -19,7 +20,7 @@ const PROMPT_CHIPS = [
 export default function MessagesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { matches } = useApp();
+  const { matches, matchesLoading, error, clearError, refreshMatches } = useApp();
 
   const topPadding = Platform.OS === 'web' ? 67 : insets.top + 8;
   const bottomPadding = Platform.OS === 'web' ? 34 : insets.bottom + 80;
@@ -45,7 +46,23 @@ export default function MessagesScreen() {
         </TouchableOpacity>
       </View>
 
-      {matches.length === 0 ? (
+      {/* Error Banner */}
+      {error && (
+        <ErrorBanner
+          message={error}
+          onRetry={() => { clearError(); refreshMatches(); }}
+          onDismiss={clearError}
+        />
+      )}
+
+      {matchesLoading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+            Loading matches…
+          </Text>
+        </View>
+      ) : matches.length === 0 ? (
         <View style={styles.empty}>
           <View style={[styles.emptyIconWrap, { backgroundColor: colors.primaryLight }]}>
             <Feather name="message-circle" size={36} color={colors.primary} />
@@ -171,4 +188,6 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
   discoverBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 13, borderRadius: 28 },
   discoverBtnText: { fontSize: 15, fontWeight: '700' },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  loadingText: { fontSize: 15 },
 });

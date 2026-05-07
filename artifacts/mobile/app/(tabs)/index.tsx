@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Platform,
+  View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -10,12 +10,13 @@ import { useApp } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import ProfileCard from '@/components/ProfileCard';
 import MatchModal from '@/components/MatchModal';
+import ErrorBanner from '@/components/ErrorBanner';
 import { RoommateProfile } from '@/context/types';
 
 export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { filteredProfiles, swipe, undoLastSwipe, shortlisted } = useApp();
+  const { filteredProfiles, swipe, undoLastSwipe, shortlisted, profilesLoading, error, clearError, refreshProfiles } = useApp();
   const [deck, setDeck] = useState<RoommateProfile[]>(filteredProfiles);
 
   useEffect(() => {
@@ -79,9 +80,25 @@ export default function DiscoverScreen() {
         </View>
       </View>
 
+      {/* Error Banner */}
+      {error && (
+        <ErrorBanner
+          message={error}
+          onRetry={() => { clearError(); refreshProfiles(); }}
+          onDismiss={clearError}
+        />
+      )}
+
       {/* Card Stack */}
       <View style={styles.cardArea}>
-        {isEmpty ? (
+        {profilesLoading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+              Finding roommates…
+            </Text>
+          </View>
+        ) : isEmpty ? (
           <View style={styles.empty}>
             <View style={[styles.emptyIconWrap, { backgroundColor: colors.primaryLight }]}>
               <Feather name="users" size={36} color={colors.primary} />
@@ -118,7 +135,7 @@ export default function DiscoverScreen() {
       </View>
 
       {/* Action Buttons */}
-      {!isEmpty && (
+      {!isEmpty && !profilesLoading && (
         <View style={[styles.actions, { paddingBottom: bottomPaddingWeb }]}>
           <View style={[styles.actionFloating, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TouchableOpacity
@@ -227,6 +244,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
+  loadingWrap: { alignItems: 'center', gap: 14 },
+  loadingText: { fontSize: 15 },
   empty: { alignItems: 'center', paddingHorizontal: 32, gap: 12 },
   emptyIconWrap: {
     width: 80,
