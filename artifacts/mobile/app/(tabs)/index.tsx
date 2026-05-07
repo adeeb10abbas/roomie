@@ -43,7 +43,7 @@ export default function DiscoverScreen() {
 
   const topCards = deck.slice(0, 3);
   const isEmpty = deck.length === 0;
-  const topProfile = topCards[topCards.length - 1];
+  const topProfile = topCards[0];
 
   const topPaddingWeb = Platform.OS === 'web' ? 67 : insets.top + 8;
   const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 84 : 60;
