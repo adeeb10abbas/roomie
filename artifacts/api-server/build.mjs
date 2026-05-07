@@ -46,6 +46,7 @@ async function buildAll() {
       "dtrace-provider",
       "isolated-vm",
       "lightningcss",
+      "socket.io",
       "pg-native",
       "oracledb",
       "mongodb-client-encryption",

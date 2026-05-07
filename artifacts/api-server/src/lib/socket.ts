@@ -9,6 +9,18 @@ type AuthSocket = Socket & { userId: string };
 
 let io: SocketIOServer | null = null;
 
+// Tracks which matchId each authenticated userId is actively viewing.
+// Key: userId, Value: matchId they currently have open (or undefined if none).
+const userActiveChats = new Map<string, string>();
+
+/**
+ * Returns true if the given user currently has the given chat open.
+ * Used by message routes to skip push notifications for active readers.
+ */
+export function isUserViewingChat(userId: string, matchId: string): boolean {
+  return userActiveChats.get(userId) === matchId;
+}
+
 export function initSocket(httpServer: HttpServer): SocketIOServer {
   io = new SocketIOServer(httpServer, {
     path: "/api/socket.io",
@@ -70,7 +82,20 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       logger.info({ userId, joined: authorizedIds.length }, "Socket joined match rooms");
     });
 
+    // Client emits this when opening or closing a specific chat screen.
+    // matchId = string to set active chat, null/undefined to clear it.
+    socket.on("set_active_chat", (matchId: unknown) => {
+      if (typeof matchId === "string" && matchId.length > 0) {
+        userActiveChats.set(userId, matchId);
+        logger.debug({ userId, matchId }, "User set active chat");
+      } else {
+        userActiveChats.delete(userId);
+        logger.debug({ userId }, "User cleared active chat");
+      }
+    });
+
     socket.on("disconnect", (reason) => {
+      userActiveChats.delete(userId);
       logger.info({ userId, socketId: socket.id, reason }, "Socket disconnected");
     });
   });

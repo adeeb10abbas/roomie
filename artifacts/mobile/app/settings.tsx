@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Platform,
 } from 'react-native';
@@ -8,15 +8,41 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/context/AppContext';
+import { setNotificationsEnabled } from '@/utils/pushNotifications';
 
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { logout } = useApp();
-  const [notifications, setNotifications] = useState(true);
+  const { logout, userId, currentUser, patchCurrentUser } = useApp();
+  const [notifications, setNotificationsState] = useState(
+    currentUser?.notificationsEnabled !== false,
+  );
   const [matchAlerts, setMatchAlerts] = useState(true);
   const [messageAlerts, setMessageAlerts] = useState(true);
   const [showOnline, setShowOnline] = useState(true);
+
+  // Sync toggle with authoritative server value whenever the profile refreshes
+  useEffect(() => {
+    if (currentUser?.notificationsEnabled !== undefined) {
+      setNotificationsState(currentUser.notificationsEnabled);
+    }
+  }, [currentUser?.notificationsEnabled]);
+
+  const handleNotificationsToggle = async (v: boolean) => {
+    setNotificationsState(v);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (userId) {
+      try {
+        await setNotificationsEnabled(userId, v);
+        // Keep the local cache in sync — no extra server round-trip needed.
+        await patchCurrentUser({ notificationsEnabled: v });
+      } catch {
+        // Revert optimistic UI update if the server call failed
+        setNotificationsState(!v);
+        Alert.alert('Error', 'Could not update notification preference. Please try again.');
+      }
+    }
+  };
 
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom + 20;
 
@@ -70,7 +96,7 @@ export default function SettingsScreen() {
           label="All Notifications"
           sublabel="Master switch for all alerts"
           value={notifications}
-          onChange={v => { setNotifications(v); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+          onChange={handleNotificationsToggle}
           colors={colors}
         />
         <ToggleRow

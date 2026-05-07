@@ -6,9 +6,10 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, router as expoRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import * as Notifications from "expo-notifications";
+import React, { useEffect, useRef } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -19,6 +20,56 @@ import { AppProvider } from "@/context/AppContext";
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+function routeFromNotificationData(data: { screen?: string; matchId?: string }): void {
+  if (data?.screen === "chat" && data.matchId) {
+    expoRouter.push(`/chat/${data.matchId}`);
+  } else if (data?.screen === "messages") {
+    expoRouter.push("/(tabs)/messages");
+  }
+}
+
+function NotificationHandler() {
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  // Track the notification ID we already acted on to prevent duplicate navigations
+  const handledNotificationId = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Cold-start: app was terminated when user tapped the notification.
+    // getLastNotificationResponseAsync() returns the tap that launched the app.
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response) return;
+      const notifId = response.notification.request.identifier;
+      if (handledNotificationId.current === notifId) return;
+      handledNotificationId.current = notifId;
+
+      const data = response.notification.request.content.data as {
+        screen?: string;
+        matchId?: string;
+      };
+      routeFromNotificationData(data);
+    });
+
+    // Foreground / background tap: app was already running.
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      const notifId = response.notification.request.identifier;
+      if (handledNotificationId.current === notifId) return;
+      handledNotificationId.current = notifId;
+
+      const data = response.notification.request.content.data as {
+        screen?: string;
+        matchId?: string;
+      };
+      routeFromNotificationData(data);
+    });
+
+    return () => {
+      responseListener.current?.remove();
+    };
+  }, []);
+
+  return null;
+}
 
 function RootLayoutNav() {
   return (
@@ -112,6 +163,7 @@ export default function RootLayout() {
           <AppProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
+                <NotificationHandler />
                 <RootLayoutNav />
               </KeyboardProvider>
             </GestureHandlerRootView>

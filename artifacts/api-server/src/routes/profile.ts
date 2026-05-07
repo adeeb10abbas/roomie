@@ -126,6 +126,7 @@ function toProfileResponse(user: typeof usersTable.$inferSelect) {
     tags: user.tags,
     badges: user.badges,
     matchScore: user.matchScore,
+    notificationsEnabled: user.notificationsEnabled,
     createdAt: user.createdAt.toISOString(),
   };
 }

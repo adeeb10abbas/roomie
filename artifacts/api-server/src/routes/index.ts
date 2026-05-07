@@ -7,6 +7,7 @@ import swipesRouter from "./swipes";
 import matchesRouter from "./matches";
 import messagesRouter from "./messages";
 import housingRouter from "./housing";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(swipesRouter);
 router.use(matchesRouter);
 router.use(messagesRouter);
 router.use(housingRouter);
+router.use(notificationsRouter);
 
 export default router;

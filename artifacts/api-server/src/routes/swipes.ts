@@ -5,6 +5,7 @@ import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 import { and, eq, or, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { sendPushNotification } from "../utils/pushNotifications";
 
 const router: IRouter = Router();
 
@@ -79,6 +80,21 @@ router.post("/swipes", requireAuth, async (req, res) => {
       user1Id: canonUser1,
       user2Id: canonUser2,
     });
+
+    // Look up both users' names for the notification
+    const [swiperRow, swipedRow] = await Promise.all([
+      db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, swiperId)).limit(1),
+      db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, profileId)).limit(1),
+    ]);
+
+    const swiperName = swiperRow[0]?.name ?? "Someone";
+    const swipedName = swipedRow[0]?.name ?? "Someone";
+
+    void Promise.all([
+      sendPushNotification(swiperId, "🎉 It's a Match!", `You matched with ${swipedName}!`, { screen: "messages", matchId }),
+      sendPushNotification(profileId, "🎉 It's a Match!", `You matched with ${swiperName}!`, { screen: "messages", matchId }),
+    ]);
+
     sendValidated(res, SwipeResponseSchema, { matched: true, matchId });
     return;
   }

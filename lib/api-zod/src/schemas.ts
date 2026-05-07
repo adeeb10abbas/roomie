@@ -48,6 +48,7 @@ export const UserProfileSchema = z.object({
   tags: z.array(z.string()),
   badges: z.array(z.string()),
   matchScore: z.number().int(),
+  notificationsEnabled: z.boolean().optional(),
   createdAt: z.string().optional(),
 });
 

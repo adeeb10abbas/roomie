@@ -29,6 +29,13 @@
       "when": 1778161267379,
       "tag": "0003_wide_siren",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778164346034,
+      "tag": "0004_famous_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

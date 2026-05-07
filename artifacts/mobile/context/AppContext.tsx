@@ -8,6 +8,7 @@ import { apiFetch, API_BASE, getStoredToken, storeToken, clearToken, setUnauthor
 import { uniqueId } from '@/utils/time';
 import { router } from 'expo-router';
 import { useSocket, SocketStatus } from '@/hooks/useSocket';
+import { registerForPushNotifications, unregisterPushNotifications } from '@/utils/pushNotifications';
 
 /**
  * AsyncStorage is kept only for two pieces of local-only state:
@@ -40,6 +41,7 @@ interface AppContextType {
   isAuthenticated: boolean;
   hasProfile: boolean;
   setCurrentUser: (user: UserProfile) => Promise<void>;
+  patchCurrentUser: (patch: Partial<UserProfile>) => Promise<void>;
   login: (email: string, password: string) => Promise<AuthResult>;
   register: (name: string, email: string, password: string) => Promise<AuthResult>;
   oauthSignIn: (provider: 'google' | 'apple', idToken: string, name?: string) => Promise<AuthResult>;
@@ -91,7 +93,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const clearError = () => setError(null);
 
   const logout = useCallback(async () => {
+    const currentUserId = userId;
+    // Capture the JWT token before clearing SecureStore. We pass it directly
+    // to unregisterPushNotifications so it can make one final authenticated
+    // DELETE call without going through apiFetch's 401 handler (which would
+    // trigger a recursive logout loop).
+    const jwtToken = await getStoredToken();
     await clearToken();
+    if (currentUserId && jwtToken) {
+      await unregisterPushNotifications(currentUserId, jwtToken);
+    }
     await AsyncStorage.multiRemove(['currentUser', 'filters']);
     setAuthToken(null);
     setCurrentUserState(null);
@@ -104,7 +115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFilteredProfiles([]);
     setShortlisted([]);
     router.replace('/login');
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -153,6 +164,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(true);
       setAuthToken(token);
 
+      // Register push token for returning authenticated users (fire-and-forget)
+      void registerForPushNotifications(payload.userId);
+
       // Fetch profile from server to get authoritative hasProfile state.
       // Fall back to cached value for UI speed, then update.
       const cachedUserStr = await AsyncStorage.getItem('currentUser');
@@ -199,6 +213,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUserId(data.userId);
     setIsAuthenticated(true);
     setHasProfile(data.hasProfile);
+    void registerForPushNotifications(data.userId);
     return data;
   };
 
@@ -220,6 +235,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUserId(data.userId);
     setIsAuthenticated(true);
     setHasProfile(data.hasProfile);
+    void registerForPushNotifications(data.userId);
     return data;
   };
 
@@ -245,7 +261,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUserId(data.userId);
     setIsAuthenticated(true);
     setHasProfile(data.hasProfile);
+    void registerForPushNotifications(data.userId);
     return data;
+  };
+
+  const patchCurrentUser = async (patch: Partial<UserProfile>) => {
+    if (!currentUser) return;
+    const merged = { ...currentUser, ...patch };
+    setCurrentUserState(merged);
+    await AsyncStorage.setItem('currentUser', JSON.stringify(merged));
   };
 
   const setCurrentUser = async (user: UserProfile) => {
@@ -481,6 +505,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useSocket({
     authToken,
     matchIds,
+    activeChatMatchId,
     onNewMessage: handleNewMessage,
     onStatusChange: setSocketStatus,
   });
@@ -492,6 +517,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       hasProfile,
       setCurrentUser,
+      patchCurrentUser,
       login,
       register,
       oauthSignIn,

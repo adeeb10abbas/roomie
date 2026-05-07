@@ -41,6 +41,7 @@ export const usersTable = pgTable("users", {
     .notNull()
     .default(sql`'[]'::jsonb`),
   matchScore: integer("match_score").notNull().default(0),
+  notificationsEnabled: boolean("notifications_enabled").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

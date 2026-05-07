@@ -39,6 +39,7 @@ export interface UserProfile {
   prompts: { question: string; answer: string }[];
   tags: string[];
   badges: string[];
+  notificationsEnabled?: boolean;
 }
 
 export interface RoommateProfile extends UserProfile {

@@ -1,11 +1,12 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, messagesTable, matchesTable } from "@workspace/db";
+import { db, messagesTable, matchesTable, usersTable } from "@workspace/db";
 import { SendMessageRequestSchema, MessageSchema, MessagesResponseSchema } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 import { and, eq, or, asc, ne } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { getIO } from "../lib/socket";
+import { getIO, isUserViewingChat } from "../lib/socket";
+import { sendPushNotification } from "../utils/pushNotifications";
 
 const router: IRouter = Router();
 
@@ -102,6 +103,26 @@ router.post(
       io.to(matchId).emit("new_message", messagePayload);
     } catch {
       req.log.warn({ matchId }, "Socket.io not ready, skipping emit");
+    }
+
+    // Send push notification to the other match participant only if they are not
+    // actively viewing this chat (tracked via the set_active_chat socket event).
+    const recipientId = match[0].user1Id === userId ? match[0].user2Id : match[0].user1Id;
+
+    if (!isUserViewingChat(recipientId, matchId)) {
+      const senderRow = await db
+        .select({ name: usersTable.name })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+      const senderName = senderRow[0]?.name ?? "Someone";
+
+      void sendPushNotification(
+        recipientId,
+        `New message from ${senderName}`,
+        parsed.data.text.length > 80 ? parsed.data.text.slice(0, 77) + "..." : parsed.data.text,
+        { screen: "chat", matchId },
+      );
     }
 
     sendValidated(res, MessageSchema, messagePayload, 201);
