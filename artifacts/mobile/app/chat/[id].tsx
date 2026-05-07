@@ -27,7 +27,7 @@ export default function ChatScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { matches, messages, sendMessage, markAsRead, userId, refreshMessages } = useApp();
+  const { matches, messages, sendMessage, markAsRead, userId, refreshMessages, socketStatus, setActiveChatMatchId } = useApp();
   const navigation = useNavigation();
 
   const match = matches.find(m => m.id === id);
@@ -37,7 +37,11 @@ export default function ChatScreen() {
   useEffect(() => {
     if (id) {
       refreshMessages(id);
+      setActiveChatMatchId(id);
     }
+    return () => {
+      setActiveChatMatchId(null);
+    };
   }, [id]);
 
   useEffect(() => {
@@ -55,8 +59,8 @@ export default function ChatScreen() {
               <Text style={[styles.headerName, { color: colors.foreground }]}>
                 {match.profile.name}
               </Text>
-              <Text style={[styles.headerMeta, { color: colors.mutedForeground }]}>
-                {match.profile.matchScore}% match
+              <Text style={[styles.headerMeta, { color: socketStatus === 'connected' ? colors.mutedForeground : '#F59E0B' }]}>
+                {socketStatus === 'connected' ? `${match.profile.matchScore}% match` : socketStatus === 'connecting' ? 'Connecting…' : 'Reconnecting…'}
               </Text>
             </View>
           </View>
@@ -83,7 +87,7 @@ export default function ChatScreen() {
         headerTintColor: colors.primary,
       });
     }
-  }, [match, colors]);
+  }, [match, colors, socketStatus]);
 
   if (!match) {
     return (

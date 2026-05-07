@@ -5,6 +5,7 @@ import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 import { and, eq, or, asc, ne } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { getIO } from "../lib/socket";
 
 const router: IRouter = Router();
 
@@ -87,19 +88,23 @@ router.post(
       timestamp: now,
     });
 
-    sendValidated(
-      res,
-      MessageSchema,
-      {
-        id: msgId,
-        matchId,
-        senderId: userId,
-        text: parsed.data.text,
-        timestamp: now.toISOString(),
-        isRead: false,
-      },
-      201,
-    );
+    const messagePayload = {
+      id: msgId,
+      matchId,
+      senderId: userId,
+      text: parsed.data.text,
+      timestamp: now.toISOString(),
+      isRead: false,
+    };
+
+    try {
+      const io = getIO();
+      io.to(matchId).emit("new_message", messagePayload);
+    } catch {
+      req.log.warn({ matchId }, "Socket.io not ready, skipping emit");
+    }
+
+    sendValidated(res, MessageSchema, messagePayload, 201);
   },
 );
 

@@ -7,6 +7,7 @@ import {
 import { apiFetch, API_BASE, getStoredToken, storeToken, clearToken, setUnauthorizedHandler } from '@/utils/api';
 import { uniqueId } from '@/utils/time';
 import { router } from 'expo-router';
+import { useSocket, SocketStatus } from '@/hooks/useSocket';
 
 /**
  * AsyncStorage is kept only for two pieces of local-only state:
@@ -62,6 +63,8 @@ interface AppContextType {
   refreshMatches: () => Promise<void>;
   refreshMessages: (matchId: string) => Promise<void>;
   refreshProfiles: () => Promise<void>;
+  socketStatus: SocketStatus;
+  setActiveChatMatchId: (matchId: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -81,12 +84,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [socketStatus, setSocketStatus] = useState<SocketStatus>('disconnected');
+  const [activeChatMatchId, setActiveChatMatchId] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   const clearError = () => setError(null);
 
   const logout = useCallback(async () => {
     await clearToken();
     await AsyncStorage.multiRemove(['currentUser', 'filters']);
+    setAuthToken(null);
     setCurrentUserState(null);
     setUserId(null);
     setIsAuthenticated(false);
@@ -144,6 +151,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       setUserId(payload.userId);
       setIsAuthenticated(true);
+      setAuthToken(token);
 
       // Fetch profile from server to get authoritative hasProfile state.
       // Fall back to cached value for UI speed, then update.
@@ -187,6 +195,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const data = await result.json() as AuthResult;
     await storeToken(data.token);
+    setAuthToken(data.token);
     setUserId(data.userId);
     setIsAuthenticated(true);
     setHasProfile(data.hasProfile);
@@ -207,6 +216,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const data = await result.json() as AuthResult;
     await storeToken(data.token);
+    setAuthToken(data.token);
     setUserId(data.userId);
     setIsAuthenticated(true);
     setHasProfile(data.hasProfile);
@@ -231,6 +241,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const data = await result.json() as AuthResult;
     await storeToken(data.token);
+    setAuthToken(data.token);
     setUserId(data.userId);
     setIsAuthenticated(true);
     setHasProfile(data.hasProfile);
@@ -444,6 +455,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem('filters', JSON.stringify(f));
   };
 
+  const handleNewMessage = useCallback((message: Message) => {
+    if (message.senderId === userId) return;
+
+    setMessages((prev) => {
+      const exists = prev.some((m) => m.id === message.id);
+      if (exists) return prev;
+      return [...prev, message];
+    });
+    setMatches((prev) =>
+      prev.map((m) => {
+        if (m.id !== message.matchId) return m;
+        return {
+          ...m,
+          lastMessage: message.text,
+          lastMessageTime: message.timestamp,
+          unread: m.id === activeChatMatchId ? m.unread : m.unread + 1,
+        };
+      }),
+    );
+  }, [userId, activeChatMatchId]);
+
+  const matchIds = matches.map((m) => m.id);
+
+  useSocket({
+    authToken,
+    matchIds,
+    onNewMessage: handleNewMessage,
+    onStatusChange: setSocketStatus,
+  });
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -474,6 +515,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshMatches,
       refreshMessages,
       refreshProfiles,
+      socketStatus,
+      setActiveChatMatchId,
     }}>
       {children}
     </AppContext.Provider>
