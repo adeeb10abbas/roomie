@@ -42,8 +42,16 @@ export interface UserProfile {
   notificationsEnabled?: boolean;
 }
 
+export interface MatchBreakdownItem {
+  category: string;
+  compatible: boolean;
+  earned: number;
+  max: number;
+}
+
 export interface RoommateProfile extends UserProfile {
   matchScore: number;
+  matchBreakdown?: MatchBreakdownItem[];
 }
 
 export interface SwipeAction {

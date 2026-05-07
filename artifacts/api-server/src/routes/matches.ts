@@ -4,22 +4,28 @@ import { MatchesResponseSchema } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 import { and, or, eq, desc, count, sql, inArray } from "drizzle-orm";
+import { computeMatchScore, computeMatchBreakdown } from "../utils/matchScore";
 
 const router: IRouter = Router();
 
 router.get("/matches", requireAuth, async (req, res) => {
   const userId = req.userId;
 
-  const matchRows = await db
-    .select()
-    .from(matchesTable)
-    .where(
-      or(
-        eq(matchesTable.user1Id, userId),
-        eq(matchesTable.user2Id, userId),
-      ),
-    )
-    .orderBy(desc(matchesTable.matchedAt));
+  const [currentUserRows, matchRows] = await Promise.all([
+    db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1),
+    db
+      .select()
+      .from(matchesTable)
+      .where(
+        or(
+          eq(matchesTable.user1Id, userId),
+          eq(matchesTable.user2Id, userId),
+        ),
+      )
+      .orderBy(desc(matchesTable.matchedAt)),
+  ]);
+
+  const currentUser = currentUserRows[0] ?? null;
 
   if (matchRows.length === 0) {
     sendValidated(res, MatchesResponseSchema, { matches: [] });
@@ -80,7 +86,7 @@ router.get("/matches", requireAuth, async (req, res) => {
       const lastMsg = lastMsgByMatchId[match.id];
       return {
         id: match.id,
-        profile: toProfileResponse(otherUser),
+        profile: toProfileResponse(otherUser, currentUser),
         matchedAt: match.matchedAt.toISOString(),
         lastMessage: lastMsg?.text ?? "",
         lastMessageTime: lastMsg?.timestamp.toISOString() ?? "",
@@ -92,7 +98,12 @@ router.get("/matches", requireAuth, async (req, res) => {
   sendValidated(res, MatchesResponseSchema, { matches });
 });
 
-function toProfileResponse(user: typeof usersTable.$inferSelect) {
+function toProfileResponse(
+  user: typeof usersTable.$inferSelect,
+  currentUser: typeof usersTable.$inferSelect | null,
+) {
+  const matchScore = currentUser ? computeMatchScore(currentUser, user) : user.matchScore;
+  const matchBreakdown = currentUser ? computeMatchBreakdown(currentUser, user) : undefined;
   return {
     id: user.id,
     name: user.name,
@@ -115,7 +126,8 @@ function toProfileResponse(user: typeof usersTable.$inferSelect) {
     prompts: user.prompts,
     tags: user.tags,
     badges: user.badges,
-    matchScore: user.matchScore,
+    matchScore,
+    matchBreakdown,
     createdAt: user.createdAt.toISOString(),
   };
 }

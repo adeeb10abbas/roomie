@@ -25,6 +25,13 @@ export const PromptSchema = z.object({
   answer: z.string(),
 });
 
+export const MatchBreakdownItemSchema = z.object({
+  category: z.string(),
+  compatible: z.boolean(),
+  earned: z.number().int(),
+  max: z.number().int(),
+});
+
 export const UserProfileSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -48,6 +55,7 @@ export const UserProfileSchema = z.object({
   tags: z.array(z.string()),
   badges: z.array(z.string()),
   matchScore: z.number().int(),
+  matchBreakdown: z.array(MatchBreakdownItemSchema).optional(),
   notificationsEnabled: z.boolean().optional(),
   createdAt: z.string().optional(),
 });

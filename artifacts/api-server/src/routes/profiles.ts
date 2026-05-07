@@ -3,7 +3,8 @@ import { db, usersTable, swipeActionsTable } from "@workspace/db";
 import { ProfilesResponseSchema, RoommateProfileSchema } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
-import { eq, ne, notInArray, inArray, and } from "drizzle-orm";
+import { eq, ne, notInArray, inArray } from "drizzle-orm";
+import { computeMatchScore, computeMatchBreakdown } from "../utils/matchScore";
 
 const PAGE_SIZE_DEFAULT = 20;
 const PAGE_SIZE_MAX = 100;
@@ -26,10 +27,15 @@ router.get("/profiles", requireAuth, async (req, res) => {
   const limit = Math.min(PAGE_SIZE_MAX, Math.max(1, parseInt(limitStr ?? String(PAGE_SIZE_DEFAULT)) || PAGE_SIZE_DEFAULT));
   const offset = (page - 1) * limit;
 
-  const swipedRows = await db
-    .select({ swipedId: swipeActionsTable.swipedId, action: swipeActionsTable.action })
-    .from(swipeActionsTable)
-    .where(eq(swipeActionsTable.swiperId, req.userId));
+  const [currentUserRows, swipedRows] = await Promise.all([
+    db.select().from(usersTable).where(eq(usersTable.id, req.userId)).limit(1),
+    db
+      .select({ swipedId: swipeActionsTable.swipedId, action: swipeActionsTable.action })
+      .from(swipeActionsTable)
+      .where(eq(swipeActionsTable.swiperId, req.userId)),
+  ]);
+
+  const currentUser = currentUserRows[0] ?? null;
 
   const swipedIds = swipedRows.map((r) => r.swipedId);
   const shortlistedIds = swipedRows
@@ -54,7 +60,7 @@ router.get("/profiles", requireAuth, async (req, res) => {
       .limit(limit)
       .offset(offset);
     sendValidated(res, ProfilesResponseSchema, {
-      profiles: profiles.map(toProfileResponse),
+      profiles: profiles.map((u) => toProfileResponse(u, currentUser)),
       total: shortlistedIds.length,
       page,
       limit,
@@ -78,7 +84,7 @@ router.get("/profiles", requireAuth, async (req, res) => {
       .where(ne(usersTable.id, req.userId));
   }
 
-  let profiles = rows.map(toProfileResponse);
+  let profiles = rows.map((u) => toProfileResponse(u, currentUser));
 
   if (budgetMin) {
     const min = parseInt(budgetMin);
@@ -99,15 +105,12 @@ router.get("/profiles", requireAuth, async (req, res) => {
     );
   }
   if (sameGenderOnly === "true") {
-    const currentUser = await db
-      .select({ gender: usersTable.gender })
-      .from(usersTable)
-      .where(eq(usersTable.id, req.userId))
-      .limit(1);
-    if (currentUser.length > 0) {
-      profiles = profiles.filter((p) => p.gender === currentUser[0].gender);
+    if (currentUser) {
+      profiles = profiles.filter((p) => p.gender === currentUser.gender);
     }
   }
+
+  profiles.sort((a, b) => b.matchScore - a.matchScore);
 
   const total = profiles.length;
   const paginated = profiles.slice(offset, offset + limit);
@@ -122,21 +125,31 @@ router.get("/profiles", requireAuth, async (req, res) => {
 });
 
 router.get("/profiles/:id", requireAuth, async (req: Request<{ id: string }>, res) => {
-  const [user] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.id, String(req.params.id)))
-    .limit(1);
+  const [user, currentUserRows] = await Promise.all([
+    db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, String(req.params.id)))
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    db.select().from(usersTable).where(eq(usersTable.id, req.userId)).limit(1),
+  ]);
 
   if (!user) {
     res.status(404).json({ error: "Profile not found" });
     return;
   }
 
-  sendValidated(res, RoommateProfileSchema, toProfileResponse(user));
+  const currentUser = currentUserRows[0] ?? null;
+  sendValidated(res, RoommateProfileSchema, toProfileResponse(user, currentUser));
 });
 
-function toProfileResponse(user: typeof usersTable.$inferSelect) {
+function toProfileResponse(
+  user: typeof usersTable.$inferSelect,
+  currentUser: typeof usersTable.$inferSelect | null,
+) {
+  const matchScore = currentUser ? computeMatchScore(currentUser, user) : user.matchScore;
+  const matchBreakdown = currentUser ? computeMatchBreakdown(currentUser, user) : undefined;
   return {
     id: user.id,
     name: user.name,
@@ -159,7 +172,8 @@ function toProfileResponse(user: typeof usersTable.$inferSelect) {
     prompts: user.prompts,
     tags: user.tags,
     badges: user.badges,
-    matchScore: user.matchScore,
+    matchScore,
+    matchBreakdown,
     createdAt: user.createdAt.toISOString(),
   };
 }

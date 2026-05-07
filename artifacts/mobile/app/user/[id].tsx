@@ -13,6 +13,18 @@ import { useColors } from '@/hooks/useColors';
 import { getProfileImage } from '@/utils/images';
 import Badge from '@/components/Badge';
 
+const CATEGORY_ICONS: Record<string, string> = {
+  'Sleep Schedule': 'moon',
+  'Cleanliness': 'star',
+  'Noise Level': 'volume-2',
+  'Smoking': 'wind',
+  'Budget': 'dollar-sign',
+  'Drinking': 'coffee',
+  'Guest Policy': 'users',
+  'Pets': 'heart',
+  'Communication': 'message-circle',
+};
+
 const LIFESTYLE_LABELS: Record<string, string> = {
   early_bird: 'Early Bird',
   night_owl: 'Night Owl',
@@ -70,14 +82,11 @@ export default function UserProfileScreen() {
 
   if (!profile) return null;
 
-  const compatibilityItems = [
-    { label: 'Budget', icon: 'dollar-sign', match: true },
-    { label: 'Sleep Schedule', icon: 'moon', match: profile.lifestyle.sleepSchedule !== 'night_owl' },
-    { label: 'Noise Level', icon: 'volume-2', match: profile.lifestyle.noise === 'moderate' },
-    { label: 'Cleanliness', icon: 'star', match: profile.lifestyle.cleanliness >= 3 },
-    { label: 'Guest Policy', icon: 'users', match: profile.lifestyle.guests !== 'often' },
-    { label: 'Smoking', icon: 'wind', match: !profile.lifestyle.smoking },
-  ];
+  const compatibilityItems = (profile.matchBreakdown ?? []).map(item => ({
+    label: item.category,
+    icon: CATEGORY_ICONS[item.category] ?? 'check-circle',
+    match: item.compatible,
+  }));
 
   const scoreColor =
     profile.matchScore >= 85 ? colors.success :
