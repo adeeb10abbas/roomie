@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "RoomieMatch",
-    "slug": "mobile",
+    "name": "RoomieAI",
+    "slug": "roomieai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "roomieai",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -14,9 +14,12 @@
       "backgroundColor": "#FAF8F5"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.roomieai.app"
     },
-    "android": {},
+    "android": {
+      "package": "com.roomieai.app"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
