@@ -43,7 +43,8 @@ export default function DiscoverScreen() {
   const topProfile = topCards[topCards.length - 1];
 
   const topPaddingWeb = Platform.OS === 'web' ? 67 : insets.top + 8;
-  const bottomPaddingWeb = Platform.OS === 'web' ? 34 : insets.bottom + 20;
+  const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 84 : 60;
+  const bottomPaddingWeb = insets.bottom + TAB_BAR_HEIGHT + 16;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
