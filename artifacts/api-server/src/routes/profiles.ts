@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, usersTable, swipeActionsTable } from "@workspace/db";
 import { ProfilesResponseSchema, RoommateProfileSchema } from "@workspace/api-zod";
-import { requireUserId } from "../middlewares/userId";
+import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 import { eq, ne, notInArray, inArray, and } from "drizzle-orm";
 
@@ -10,7 +10,7 @@ const PAGE_SIZE_MAX = 100;
 
 const router: IRouter = Router();
 
-router.get("/profiles", requireUserId, async (req, res) => {
+router.get("/profiles", requireAuth, async (req, res) => {
   const {
     budgetMin,
     budgetMax,
@@ -121,7 +121,7 @@ router.get("/profiles", requireUserId, async (req, res) => {
   });
 });
 
-router.get("/profiles/:id", async (req: Request<{ id: string }>, res) => {
+router.get("/profiles/:id", requireAuth, async (req: Request<{ id: string }>, res) => {
   const [user] = await db
     .select()
     .from(usersTable)

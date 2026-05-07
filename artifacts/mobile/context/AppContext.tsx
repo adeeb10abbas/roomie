@@ -4,15 +4,17 @@ import {
   UserProfile, RoommateProfile, SwipeAction, Match,
   Message, HousingListing, FilterSettings,
 } from './types';
-import { apiFetch } from '@/utils/api';
+import { apiFetch, API_BASE, getStoredToken, storeToken, clearToken, setUnauthorizedHandler } from '@/utils/api';
 import { uniqueId } from '@/utils/time';
+import { router } from 'expo-router';
 
 /**
- * AsyncStorage is intentionally kept for three pieces of local-only state:
- *  - userId       : the device-generated identity used as the x-user-id auth header
+ * AsyncStorage is kept only for two pieces of local-only state:
  *  - currentUser  : cached profile so the app renders without a round-trip on cold start
  *  - filters      : user's last-used filter preferences (UI state, not server-owned)
- * All relational data (profiles, matches, messages, housing) is fully DB-backed via the API.
+ *
+ * Authentication is now JWT-based. The token is stored in SecureStore (or localStorage on web).
+ * userId is derived from the JWT payload; no longer stored separately in AsyncStorage.
  */
 
 const DEFAULT_FILTERS: FilterSettings = {
@@ -24,10 +26,23 @@ const DEFAULT_FILTERS: FilterSettings = {
   sameGenderOnly: false,
 };
 
+interface AuthResult {
+  token: string;
+  userId: string;
+  email: string;
+  hasProfile: boolean;
+}
+
 interface AppContextType {
   currentUser: UserProfile | null;
   userId: string | null;
+  isAuthenticated: boolean;
+  hasProfile: boolean;
   setCurrentUser: (user: UserProfile) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  register: (name: string, email: string, password: string) => Promise<AuthResult>;
+  oauthSignIn: (provider: 'google' | 'apple', idToken: string, name?: string) => Promise<AuthResult>;
+  logout: () => Promise<void>;
   swipeActions: SwipeAction[];
   swipe: (profileId: string, action: 'like' | 'skip' | 'shortlist') => Promise<boolean>;
   undoLastSwipe: () => Promise<void>;
@@ -54,6 +69,8 @@ const AppContext = createContext<AppContextType | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUserState] = useState<UserProfile | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false);
   const [swipeActions, setSwipeActions] = useState<SwipeAction[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -67,62 +84,168 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const clearError = () => setError(null);
 
+  const logout = useCallback(async () => {
+    await clearToken();
+    await AsyncStorage.multiRemove(['currentUser', 'filters']);
+    setCurrentUserState(null);
+    setUserId(null);
+    setIsAuthenticated(false);
+    setHasProfile(false);
+    setSwipeActions([]);
+    setMatches([]);
+    setMessages([]);
+    setFilteredProfiles([]);
+    setShortlisted([]);
+    router.replace('/login');
+  }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      logout();
+    });
+  }, [logout]);
+
   useEffect(() => {
     loadInitialData();
   }, []);
 
   useEffect(() => {
-    if (userId) {
+    if (userId && isAuthenticated) {
       refreshMatches();
       fetchHousing();
     }
-  }, [userId]);
+  }, [userId, isAuthenticated]);
 
   useEffect(() => {
-    if (userId) {
+    if (userId && isAuthenticated) {
       refreshProfiles();
     }
-  }, [userId, filters]);
+  }, [userId, isAuthenticated, filters]);
 
   const loadInitialData = async () => {
     try {
-      const [userStr, userIdStr, filtersStr] = await Promise.all([
-        AsyncStorage.getItem('currentUser'),
-        AsyncStorage.getItem('userId'),
-        AsyncStorage.getItem('filters'),
-      ]);
+      const token = await getStoredToken();
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
+      const filtersStr = await AsyncStorage.getItem('filters');
       if (filtersStr) setFiltersState(JSON.parse(filtersStr));
 
-      let resolvedUserId = userIdStr;
-
-      if (userStr) {
-        const parsedUser = JSON.parse(userStr) as UserProfile;
-        setCurrentUserState(parsedUser);
-
-        if (!resolvedUserId) {
-          resolvedUserId = parsedUser.id || uniqueId();
-          await AsyncStorage.setItem('userId', resolvedUserId);
-        }
-        setUserId(resolvedUserId);
+      const payload = parseJwt(token);
+      if (!payload?.userId) {
+        // Token is invalid or expired — clear it
+        await clearToken();
+        await AsyncStorage.multiRemove(['currentUser']);
+        setLoading(false);
+        return;
       }
-    } catch (_) {
-      // ignore AsyncStorage errors on cold start
+
+      setUserId(payload.userId);
+      setIsAuthenticated(true);
+
+      // Fetch profile from server to get authoritative hasProfile state.
+      // Fall back to cached value for UI speed, then update.
+      const cachedUserStr = await AsyncStorage.getItem('currentUser');
+      if (cachedUserStr) {
+        const cached = JSON.parse(cachedUserStr) as UserProfile;
+        setCurrentUserState(cached);
+        // Consider profile complete if cached has meaningful data
+        setHasProfile(cached.age > 0 && cached.name.trim().length > 0);
+      }
+
+      try {
+        const serverProfile = await apiFetch<UserProfile>('/profile/me', payload.userId);
+        setCurrentUserState(serverProfile);
+        await AsyncStorage.setItem('currentUser', JSON.stringify(serverProfile));
+        setHasProfile(serverProfile.age > 0 && serverProfile.name.trim().length > 0);
+      } catch {
+        // Server fetch failed (network/offline) — keep cached profile state
+        // hasProfile was already set from cache above; if no cache, stays false
+      }
+    } catch {
+      // On any unexpected error, clear potentially corrupted auth state
+      await clearToken();
+      await AsyncStorage.multiRemove(['currentUser']);
     } finally {
       setLoading(false);
     }
   };
 
+  const login = async (email: string, password: string): Promise<AuthResult> => {
+    const result = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!result.ok) {
+      const body = await result.text();
+      throw new Error(`API error ${result.status}: ${body}`);
+    }
+
+    const data = await result.json() as AuthResult;
+    await storeToken(data.token);
+    setUserId(data.userId);
+    setIsAuthenticated(true);
+    setHasProfile(data.hasProfile);
+    return data;
+  };
+
+  const register = async (name: string, email: string, password: string): Promise<AuthResult> => {
+    const result = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+
+    if (!result.ok) {
+      const body = await result.text();
+      throw new Error(`API error ${result.status}: ${body}`);
+    }
+
+    const data = await result.json() as AuthResult;
+    await storeToken(data.token);
+    setUserId(data.userId);
+    setIsAuthenticated(true);
+    setHasProfile(data.hasProfile);
+    return data;
+  };
+
+  const oauthSignIn = async (
+    provider: 'google' | 'apple',
+    idToken: string,
+    name?: string,
+  ): Promise<AuthResult> => {
+    const result = await fetch(`${API_BASE}/auth/oauth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, idToken, name }),
+    });
+
+    if (!result.ok) {
+      const body = await result.text();
+      throw new Error(`API error ${result.status}: ${body}`);
+    }
+
+    const data = await result.json() as AuthResult;
+    await storeToken(data.token);
+    setUserId(data.userId);
+    setIsAuthenticated(true);
+    setHasProfile(data.hasProfile);
+    return data;
+  };
+
   const setCurrentUser = async (user: UserProfile) => {
     setCurrentUserState(user);
     await AsyncStorage.setItem('currentUser', JSON.stringify(user));
-
-    let uid = userId;
-    if (!uid) {
-      uid = user.id || uniqueId();
-      setUserId(uid);
-      await AsyncStorage.setItem('userId', uid);
+    if (user.age > 0 && user.name.trim().length > 0) {
+      setHasProfile(true);
     }
+
+    const uid = userId;
+    if (!uid) return;
 
     try {
       await apiFetch(`/profile/me`, uid, {
@@ -136,7 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshProfiles = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || !isAuthenticated) return;
     setProfilesLoading(true);
     try {
       const params = new URLSearchParams();
@@ -165,10 +288,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       setProfilesLoading(false);
     }
-  }, [userId, filters]);
+  }, [userId, isAuthenticated, filters]);
 
   const refreshMatches = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || !isAuthenticated) return;
     try {
       const data = await apiFetch<{ matches: Match[] }>('/matches', userId);
       setMatches(data.matches);
@@ -176,10 +299,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const msg = err instanceof Error ? err.message : 'Failed to load matches';
       setError(msg);
     }
-  }, [userId]);
+  }, [userId, isAuthenticated]);
 
   const refreshMessages = useCallback(async (matchId: string) => {
-    if (!userId) return;
+    if (!userId || !isAuthenticated) return;
     try {
       const data = await apiFetch<{ messages: Message[] }>(
         `/messages/${matchId}`,
@@ -193,7 +316,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const msg = err instanceof Error ? err.message : 'Failed to load messages';
       setError(msg);
     }
-  }, [userId]);
+  }, [userId, isAuthenticated]);
 
   const fetchHousing = useCallback(async () => {
     try {
@@ -311,9 +434,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
     try {
       await apiFetch(`/messages/${matchId}/read`, userId, { method: 'POST' });
-    } catch (err) {
+    } catch {
       // Non-critical — unread count will re-sync on next refreshMatches
-      console.warn('Failed to mark as read:', err);
     }
   };
 
@@ -326,7 +448,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       currentUser,
       userId,
+      isAuthenticated,
+      hasProfile,
       setCurrentUser,
+      login,
+      register,
+      oauthSignIn,
+      logout,
       swipeActions,
       swipe,
       undoLastSwipe,
@@ -350,6 +478,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
       {children}
     </AppContext.Provider>
   );
+}
+
+function base64UrlDecode(str: string): string {
+  // Normalize base64url → base64 then decode robustly (works in RN + web)
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64 + '=='.slice(0, (4 - (base64.length % 4)) % 4);
+  try {
+    // atob is available in React Native ≥0.70 and all modern browsers
+    return decodeURIComponent(
+      atob(padded)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    );
+  } catch {
+    // Fallback: manual base64 decode without atob (for edge environments)
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let result = '';
+    let bits = 0;
+    let acc = 0;
+    for (const char of padded) {
+      const idx = chars.indexOf(char);
+      if (idx === -1) continue;
+      acc = (acc << 6) | idx;
+      bits += 6;
+      if (bits >= 8) {
+        bits -= 8;
+        result += String.fromCharCode((acc >> bits) & 0xff);
+      }
+    }
+    return decodeURIComponent(
+      result.split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''),
+    );
+  }
+}
+
+function parseJwt(token: string): { userId: string; email: string; exp?: number } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(base64UrlDecode(parts[1])) as {
+      userId?: string;
+      email?: string;
+      exp?: number;
+    };
+    if (!payload.userId) return null;
+    // Reject token if already expired
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      return null;
+    }
+    return payload as { userId: string; email: string; exp?: number };
+  } catch {
+    return null;
+  }
 }
 
 export function useApp() {

@@ -1,13 +1,13 @@
 import { Router, type IRouter } from "express";
 import { db, matchesTable, usersTable, messagesTable } from "@workspace/db";
 import { MatchesResponseSchema } from "@workspace/api-zod";
-import { requireUserId } from "../middlewares/userId";
+import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 import { and, or, eq, desc, count, sql, inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.get("/matches", requireUserId, async (req, res) => {
+router.get("/matches", requireAuth, async (req, res) => {
   const userId = req.userId;
 
   const matchRows = await db

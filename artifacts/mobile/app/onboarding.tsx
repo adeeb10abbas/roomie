@@ -9,7 +9,6 @@ import { router } from 'expo-router';
 import { useApp } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import { UserProfile, Gender, NoiseLevel, CleanlinessLevel } from '@/context/types';
-import { uniqueId } from '@/utils/time';
 
 const NEIGHBORHOODS = [
   'Williamsburg', 'Brooklyn Heights', 'Park Slope', 'Lower East Side',
@@ -37,7 +36,7 @@ const TOTAL_STEPS = 5;
 export default function OnboardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setCurrentUser } = useApp();
+  const { setCurrentUser, userId } = useApp();
   const [step, setStep] = useState(0);
 
   const [name, setName] = useState('');
@@ -81,7 +80,7 @@ export default function OnboardingScreen() {
 
   const handleFinish = async () => {
     const user: UserProfile = {
-      id: uniqueId(),
+      id: userId ?? '',
       name: name.trim(),
       age: parseInt(age) || 25,
       gender,

@@ -1,14 +1,14 @@
 import { Router, type IRouter } from "express";
 import { db, swipeActionsTable, matchesTable, usersTable } from "@workspace/db";
 import { SwipeRequestSchema, SwipeResponseSchema } from "@workspace/api-zod";
-import { requireUserId } from "../middlewares/userId";
+import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 import { and, eq, or, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
 
-router.post("/swipes", requireUserId, async (req, res) => {
+router.post("/swipes", requireAuth, async (req, res) => {
   const parsed = SwipeRequestSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid swipe data", details: parsed.error.issues });
@@ -86,7 +86,7 @@ router.post("/swipes", requireUserId, async (req, res) => {
   sendValidated(res, SwipeResponseSchema, { matched: false });
 });
 
-router.delete("/swipes/:swipedId", requireUserId, async (req, res) => {
+router.delete("/swipes/:swipedId", requireAuth, async (req, res) => {
   const swipedId = String(req.params.swipedId);
   await db
     .delete(swipeActionsTable)

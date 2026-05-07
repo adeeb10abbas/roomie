@@ -4,7 +4,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 
 export default function Index() {
-  const { currentUser, loading } = useApp();
+  const { isAuthenticated, loading, hasProfile } = useApp();
   const colors = useColors();
 
   if (loading) {
@@ -15,7 +15,11 @@ export default function Index() {
     );
   }
 
-  if (!currentUser) {
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
+
+  if (!hasProfile) {
     return <Redirect href="/onboarding" />;
   }
 

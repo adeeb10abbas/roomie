@@ -1,12 +1,13 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, housingListingsTable, usersTable } from "@workspace/db";
 import { HousingListingSchema, HousingResponseSchema } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 import { eq, inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.get("/housing", async (_req, res) => {
+router.get("/housing", requireAuth, async (_req, res) => {
   const rows = await db.select().from(housingListingsTable);
 
   if (rows.length === 0) {
@@ -28,7 +29,7 @@ router.get("/housing", async (_req, res) => {
   sendValidated(res, HousingResponseSchema, { listings });
 });
 
-router.get("/housing/:id", async (req: Request<{ id: string }>, res) => {
+router.get("/housing/:id", requireAuth, async (req: Request<{ id: string }>, res) => {
   const [row] = await db
     .select()
     .from(housingListingsTable)

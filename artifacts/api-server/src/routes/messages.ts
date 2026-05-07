@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, messagesTable, matchesTable } from "@workspace/db";
 import { SendMessageRequestSchema, MessageSchema, MessagesResponseSchema } from "@workspace/api-zod";
-import { requireUserId } from "../middlewares/userId";
+import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 import { and, eq, or, asc, ne } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -26,7 +26,7 @@ async function getMatch(matchId: string, userId: string) {
 
 router.get(
   "/messages/:matchId",
-  requireUserId,
+  requireAuth,
   async (req: Request<{ matchId: string }>, res) => {
     const matchId = String(req.params.matchId);
     const userId = req.userId;
@@ -58,7 +58,7 @@ router.get(
 
 router.post(
   "/messages/:matchId",
-  requireUserId,
+  requireAuth,
   async (req: Request<{ matchId: string }>, res) => {
     const matchId = String(req.params.matchId);
     const userId = req.userId;
@@ -105,7 +105,7 @@ router.post(
 
 router.post(
   "/messages/:matchId/read",
-  requireUserId,
+  requireAuth,
   async (req: Request<{ matchId: string }>, res) => {
     const matchId = String(req.params.matchId);
     const userId = req.userId;

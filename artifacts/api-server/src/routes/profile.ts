@@ -2,12 +2,12 @@ import { Router, type IRouter } from "express";
 import { db, usersTable } from "@workspace/db";
 import { UpsertProfileSchema, UserProfileSchema } from "@workspace/api-zod";
 import { eq } from "drizzle-orm";
-import { requireUserId } from "../middlewares/userId";
+import { requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 
 const router: IRouter = Router();
 
-router.get("/profile/me", requireUserId, async (req, res) => {
+router.get("/profile/me", requireAuth, async (req, res) => {
   const user = await db
     .select()
     .from(usersTable)
@@ -22,7 +22,7 @@ router.get("/profile/me", requireUserId, async (req, res) => {
   sendValidated(res, UserProfileSchema, toProfileResponse(user[0]));
 });
 
-router.put("/profile/me", requireUserId, async (req, res) => {
+router.put("/profile/me", requireAuth, async (req, res) => {
   const parsed = UpsertProfileSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid profile data", details: parsed.error.issues });

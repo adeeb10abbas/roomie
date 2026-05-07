@@ -5,19 +5,37 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
+import { useApp } from '@/context/AppContext';
 
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { logout } = useApp();
   const [notifications, setNotifications] = useState(true);
   const [matchAlerts, setMatchAlerts] = useState(true);
   const [messageAlerts, setMessageAlerts] = useState(true);
   const [showOnline, setShowOnline] = useState(true);
 
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom + 20;
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+          },
+        },
+      ]
+    );
+  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -29,8 +47,7 @@ export default function SettingsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.clear();
-            router.replace('/onboarding');
+            await logout();
           },
         },
       ]
@@ -129,7 +146,7 @@ export default function SettingsScreen() {
         />
       </SettingsSection>
 
-      {/* Danger Zone */}
+      {/* Account Management */}
       <SettingsSection title="Account Management" colors={colors}>
         <SettingsRow
           icon="pause-circle"
@@ -138,6 +155,18 @@ export default function SettingsScreen() {
           onPress={() => Alert.alert('Account Paused', 'Your profile is now hidden from other users.')}
           colors={colors}
         />
+        <TouchableOpacity
+          style={[styles.dangerRow, { borderBottomColor: colors.border }]}
+          onPress={handleLogout}
+        >
+          <View style={[styles.dangerIcon, { backgroundColor: '#FFF7ED' }]}>
+            <Feather name="log-out" size={18} color="#EA580C" />
+          </View>
+          <View style={styles.dangerInfo}>
+            <Text style={[styles.dangerLabel, { color: '#EA580C' }]}>Sign Out</Text>
+            <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>Sign out of your account</Text>
+          </View>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.dangerRow, { borderBottomColor: colors.border }]}
           onPress={handleDeleteAccount}
