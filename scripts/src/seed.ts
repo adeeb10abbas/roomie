@@ -1,4 +1,10 @@
-import { db, usersTable, housingListingsTable } from "@workspace/db";
+import bcrypt from "bcryptjs";
+import { db, usersTable, housingListingsTable, authCredentialsTable } from "@workspace/db";
+import { randomUUID } from "crypto";
+
+const TEST_USER_ID = "test-user-01";
+const TEST_EMAIL = "test@roomie.app";
+const TEST_PASSWORD = "password123";
 
 const MOCK_USERS = [
   {
@@ -367,23 +373,80 @@ const MOCK_HOUSING = [
 ];
 
 async function seed() {
+  // ── 1. Seed mock profiles ────────────────────────────────────────────────
   console.log("Seeding users...");
   for (const user of MOCK_USERS) {
-    await db
-      .insert(usersTable)
-      .values(user)
-      .onConflictDoNothing();
+    await db.insert(usersTable).values(user).onConflictDoNothing();
   }
-  console.log(`Seeded ${MOCK_USERS.length} users.`);
+  console.log(`✓ Seeded ${MOCK_USERS.length} mock profiles.`);
 
+  // ── 2. Seed housing listings ─────────────────────────────────────────────
   console.log("Seeding housing listings...");
   for (const listing of MOCK_HOUSING) {
-    await db
-      .insert(housingListingsTable)
-      .values(listing)
-      .onConflictDoNothing();
+    await db.insert(housingListingsTable).values(listing).onConflictDoNothing();
   }
-  console.log(`Seeded ${MOCK_HOUSING.length} housing listings.`);
+  console.log(`✓ Seeded ${MOCK_HOUSING.length} housing listings.`);
+
+  // ── 3. Create test account ───────────────────────────────────────────────
+  console.log(`Creating test account: ${TEST_EMAIL} / ${TEST_PASSWORD} ...`);
+
+  const passwordHash = await bcrypt.hash(TEST_PASSWORD, 12);
+
+  await db
+    .insert(usersTable)
+    .values({
+      id: TEST_USER_ID,
+      name: "Alex Taylor",
+      age: 25,
+      gender: "prefer_not_to_say",
+      university: "NYU",
+      isVerified: true,
+      bio: "This is the test account. Swipe around and explore the app!",
+      photoIndex: 2,
+      occupation: "Product Designer",
+      location: "New York, NY",
+      neighborhoods: ["Williamsburg", "Brooklyn Heights", "Park Slope"],
+      budgetMin: 1200,
+      budgetMax: 2000,
+      moveInDate: "July 2026",
+      lifestyle: {
+        sleepSchedule: "flexible",
+        cleanliness: 4,
+        noise: "moderate",
+        smoking: false,
+        drinking: "socially",
+        pets: false,
+        guests: "sometimes",
+        communicationStyle: "direct",
+      },
+      sameGenderOnly: false,
+      language: "English",
+      religion: "",
+      prompts: [
+        { question: "My ideal Sunday morning", answer: "Coffee, a good book, and no alarms" },
+        { question: "What I bring to a shared home", answer: "Good vibes, a clean kitchen, and occasional homemade pasta" },
+      ],
+      tags: ["design", "coffee", "traveler", "clean", "flexible"],
+      badges: ["verified", "complete_profile"],
+      matchScore: 0,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(authCredentialsTable)
+    .values({
+      id: randomUUID(),
+      userId: TEST_USER_ID,
+      email: TEST_EMAIL,
+      passwordHash,
+      provider: "email",
+      providerUserId: null,
+    })
+    .onConflictDoNothing();
+
+  console.log(`✓ Test account ready.`);
+  console.log(`\n  Email:    ${TEST_EMAIL}`);
+  console.log(`  Password: ${TEST_PASSWORD}\n`);
 
   console.log("Seed complete.");
   process.exit(0);
