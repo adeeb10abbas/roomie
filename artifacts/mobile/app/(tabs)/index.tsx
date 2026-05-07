@@ -115,6 +115,15 @@ export default function DiscoverScreen() {
                 Adjust Filters
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.emptyBtnSecondary, { borderColor: colors.border }]}
+              onPress={() => refreshProfiles()}
+            >
+              <Feather name="refresh-cw" size={14} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={[styles.emptyBtnSecondaryText, { color: colors.primary }]}>
+                Check for new profiles
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : (
           [...topCards].reverse().map((profile, reverseIdx) => {
@@ -264,6 +273,15 @@ const styles = StyleSheet.create({
     borderRadius: 28,
   },
   emptyBtnText: { fontSize: 15, fontWeight: '700' },
+  emptyBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+    borderRadius: 28,
+    borderWidth: 1,
+  },
+  emptyBtnSecondaryText: { fontSize: 15, fontWeight: '600' },
   actions: {
     alignItems: 'center',
     paddingHorizontal: 20,
