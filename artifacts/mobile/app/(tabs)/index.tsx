@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Platform,
 } from 'react-native';
@@ -17,19 +17,21 @@ export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { filteredProfiles, swipe, undoLastSwipe, shortlisted } = useApp();
   const [deck, setDeck] = useState<RoommateProfile[]>(filteredProfiles);
+
+  useEffect(() => {
+    setDeck(filteredProfiles);
+  }, [filteredProfiles]);
   const [matchProfile, setMatchProfile] = useState<RoommateProfile | null>(null);
   const [showMatch, setShowMatch] = useState(false);
 
-  const handleSwipe = useCallback((profileId: string, action: 'like' | 'skip' | 'shortlist') => {
-    const isMatch = swipe(profileId, action);
-    if (isMatch) {
-      const profile = deck.find(p => p.id === profileId);
-      if (profile) {
-        setMatchProfile(profile);
-        setShowMatch(true);
-      }
-    }
+  const handleSwipe = useCallback(async (profileId: string, action: 'like' | 'skip' | 'shortlist') => {
+    const profile = deck.find(p => p.id === profileId);
     setDeck(prev => prev.filter(p => p.id !== profileId));
+    const isMatch = await swipe(profileId, action);
+    if (isMatch && profile) {
+      setMatchProfile(profile);
+      setShowMatch(true);
+    }
   }, [deck, swipe]);
 
   const handleUndo = () => {

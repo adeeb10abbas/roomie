@@ -62,7 +62,7 @@ export default function ConversationItem({ match, onPress }: Props) {
           >
             {match.lastMessage || 'You matched! Say hello 👋'}
           </Text>
-          {hasUnread > 0 && (
+          {hasUnread && (
             <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
               <Text style={styles.unreadText}>{match.unread}</Text>
             </View>

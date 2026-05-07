@@ -27,12 +27,18 @@ export default function ChatScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { matches, messages, sendMessage, markAsRead } = useApp();
+  const { matches, messages, sendMessage, markAsRead, userId, refreshMessages } = useApp();
   const navigation = useNavigation();
 
   const match = matches.find(m => m.id === id);
   const chatMessages = messages.filter(m => m.matchId === id);
   const [text, setText] = useState('');
+
+  useEffect(() => {
+    if (id) {
+      refreshMessages(id);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (match) {
@@ -99,7 +105,7 @@ export default function ChatScreen() {
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    const isMe = item.senderId === 'me';
+    const isMe = item.senderId === userId || item.senderId === 'me';
     return (
       <View style={[styles.msgRow, isMe && styles.msgRowMe]}>
         {!isMe && (

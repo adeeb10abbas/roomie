@@ -7,8 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { MOCK_PROFILES } from '@/data/mockData';
 import { useApp } from '@/context/AppContext';
+import { apiFetch } from '@/utils/api';
 import { useColors } from '@/hooks/useColors';
 import { getProfileImage } from '@/utils/images';
 import Badge from '@/components/Badge';
@@ -34,25 +34,41 @@ const LIFESTYLE_LABELS: Record<string, string> = {
 export default function UserProfileScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { swipe, matches, swipeActions } = useApp();
+  const { swipe, matches, swipeActions, filteredProfiles, shortlisted, userId } = useApp();
+  const [profile, setProfile] = React.useState<import('@/context/types').RoommateProfile | null>(null);
 
-  const profile = MOCK_PROFILES.find(p => p.id === id);
-  if (!profile) return null;
+  React.useEffect(() => {
+    const cached =
+      filteredProfiles.find(p => p.id === id) ||
+      shortlisted.find(p => p.id === id) ||
+      matches.find(m => m.profile.id === id)?.profile || null;
+    if (cached) {
+      setProfile(cached);
+    } else {
+      apiFetch<import('@/context/types').RoommateProfile>(`/profiles/${id}`, userId)
+        .then(setProfile)
+        .catch(() => null);
+    }
+  }, [id, userId]);
 
   const isMatched = matches.some(m => m.profile.id === id);
   const alreadySwiped = swipeActions.some(a => a.profileId === id);
 
   const handleLike = () => {
+    if (!profile) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     swipe(profile.id, 'like');
     router.back();
   };
 
   const handleSkip = () => {
+    if (!profile) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     swipe(profile.id, 'skip');
     router.back();
   };
+
+  if (!profile) return null;
 
   const compatibilityItems = [
     { label: 'Budget', icon: 'dollar-sign', match: true },
