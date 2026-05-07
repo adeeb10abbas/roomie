@@ -23,7 +23,8 @@ export default function MessagesScreen() {
   const { matches, matchesLoading, error, clearError, refreshMatches } = useApp();
 
   const topPadding = Platform.OS === 'web' ? 67 : insets.top + 8;
-  const bottomPadding = Platform.OS === 'web' ? 34 : insets.bottom + 80;
+  const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 84 : 60;
+  const bottomPadding = insets.bottom + TAB_BAR_HEIGHT + 16;
 
   const totalUnread = matches.reduce((s, m) => s + m.unread, 0);
 

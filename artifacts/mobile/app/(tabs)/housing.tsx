@@ -34,7 +34,8 @@ export default function HousingScreen() {
   });
 
   const topPadding = Platform.OS === 'web' ? 67 : insets.top + 8;
-  const bottomPadding = Platform.OS === 'web' ? 34 : insets.bottom + 80;
+  const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 84 : 60;
+  const bottomPadding = insets.bottom + TAB_BAR_HEIGHT + 16;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
