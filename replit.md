@@ -1,45 +1,86 @@
-# [Project name]
+# RoomieMatch
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A Hinge-style mobile app for finding compatible roommates, built with Expo (React Native). Frontend-only with AsyncStorage persistence.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Workflow: `artifacts/mobile: expo` — starts the Expo dev server
+- Scan the QR code with Expo Go, or view in web preview
+- No backend required — all data is mocked/local
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Mobile: Expo 54, expo-router 6, React Native 0.81
+- State: React Context + @react-native-async-storage/async-storage
+- UI: expo-linear-gradient, expo-image, expo-haptics, @expo/vector-icons (Feather)
+- Gestures: PanResponder (for card swiping)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+```
+artifacts/mobile/
+  app/
+    index.tsx              # Entry: redirect to onboarding or (tabs)
+    onboarding.tsx         # 5-step profile setup
+    (tabs)/
+      index.tsx            # Discover (card swipe stack)
+      housing.tsx          # Browse open rooms & forming groups
+      messages.tsx         # Match inbox
+      profile.tsx          # Own profile view
+    chat/[id].tsx          # Chat with a match
+    user/[id].tsx          # View another user's full profile
+    housing-detail/[id].tsx # Housing listing detail
+    filters.tsx            # Match filter settings (modal)
+    shortlist.tsx          # Saved profiles
+    settings.tsx           # App settings
+    edit-profile.tsx       # Edit own profile
+  components/
+    ProfileCard.tsx        # Swipeable card (PanResponder)
+    MatchModal.tsx         # "It's a Match!" overlay
+    ConversationItem.tsx   # Message inbox row
+    HousingCard.tsx        # Housing listing card
+    Badge.tsx              # Trust badges (verified, etc.)
+  context/
+    types.ts               # All TypeScript interfaces
+    AppContext.tsx          # Global state + AsyncStorage persistence
+  data/mockData.ts         # 10 profiles, 5 listings, 2 initial matches/messages
+  constants/colors.ts      # Theme: primary #E8446A, bg #FAF8F5
+  utils/images.ts          # Static require() array for profile photos
+  utils/time.ts            # formatTime, uniqueId helpers
+  assets/images/           # icon.png, profile1-profile5.png (AI-generated)
+```
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Frontend-only, no backend**: all data lives in mockData.ts + AsyncStorage. Match detection is simulated (35% chance on like/shortlist).
+- **PanResponder over gesture-handler** for card swiping: simpler API, no native module config needed in Expo Go.
+- **Static `require()` for images**: React Native requires static image imports; we map `photoIndex` (0–4) to a pre-loaded array in `utils/images.ts`.
+- **`useColors()` hook** (from `@/hooks/useColors`) provides the light-mode palette everywhere; ready for dark mode extension.
+- **expo-router file-based routing**: tabs in `(tabs)/`, stack screens at root level, modal for filters.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Discover**: Swipe cards right (like), left (skip), or up (shortlist). 35% match chance on like. Match modal with celebration animation.
+- **Housing**: Browse "Open Rooms" (existing places) and "Forming Groups" (building a group first). Search + detail page with join request flow.
+- **Messages**: Match inbox with unread counts. Full chat screen with prompt chips, report/block/unmatch actions. "Why you match" banner.
+- **Profile**: Own profile with stats, badges, prompts, lifestyle info. Edit profile and settings accessible from here.
+- **Filters**: Budget range, neighborhoods, noise level, smoking, same-gender preference.
+- **Onboarding**: 5-step setup (basic info → university → location+budget → lifestyle → bio+photo).
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- App name: RoomieMatch
+- Color palette: primary #E8446A (coral/rose), background #FAF8F5 (warm off-white)
+- Feature list from attached document (May 2026) — full MVP coverage
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Card swipe uses PanResponder; `isTop` prop must be true only for the topmost card or all cards will try to respond to gestures.
+- `require()` for images must be static — never dynamic string interpolation.
+- Expo Go does not support all native modules; avoid adding native-only packages without checking Expo Go compatibility.
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See the `pnpm-workspace` skill for workspace structure
+- See the `expo` skill for Expo/React Native conventions

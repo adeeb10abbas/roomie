@@ -1,0 +1,38 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "o9Ze9WRdH3xz5wqIF6oIg"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "roommate app icon"
+
+[[generated]]
+id = "fpz7U_olmp3gvhNMCEW0I"
+uri = "file://artifacts/mobile/assets/images/profile1.png"
+type = "image"
+title = "profile photo woman"
+
+[[generated]]
+id = "pkaCE2aBsvXBNGmDRUPUq"
+uri = "file://artifacts/mobile/assets/images/profile2.png"
+type = "image"
+title = "profile photo man"
+
+[[generated]]
+id = "a7K7amFla1CU7Cd_d8bTA"
+uri = "file://artifacts/mobile/assets/images/profile3.png"
+type = "image"
+title = "profile photo woman outdoor"
+
+[[generated]]
+id = "GH5ELOkiRlv4wQ7o54mJ0"
+uri = "file://artifacts/mobile/assets/images/profile4.png"
+type = "image"
+title = "profile photo man kitchen"
+
+[[generated]]
+id = "0tpkBSzmAU8onbizpPqeE"
+uri = "file://artifacts/mobile/assets/images/profile5.png"
+type = "image"
+title = "profile photo woman working"
