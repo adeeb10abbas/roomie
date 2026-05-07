@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Platform,
 } from 'react-native';
@@ -48,8 +48,13 @@ export default function DiscoverScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPaddingWeb }]}>
-        <Text style={[styles.logo, { color: colors.primary }]}>RoomieMatch</Text>
+      <View style={[styles.header, { paddingTop: topPaddingWeb, borderBottomColor: colors.border }]}>
+        <View style={styles.logoRow}>
+          <Text style={[styles.logoText, { color: colors.foreground }]}>Roomie</Text>
+          <View style={[styles.logoBadge, { backgroundColor: colors.primaryLight, borderColor: colors.primaryMedium }]}>
+            <Text style={[styles.logoBadgeText, { color: colors.primary }]}>AI</Text>
+          </View>
+        </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -75,7 +80,9 @@ export default function DiscoverScreen() {
       <View style={styles.cardArea}>
         {isEmpty ? (
           <View style={styles.empty}>
-            <Feather name="users" size={52} color={colors.mutedForeground} />
+            <View style={[styles.emptyIconWrap, { backgroundColor: colors.primaryLight }]}>
+              <Feather name="users" size={36} color={colors.primary} />
+            </View>
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>All caught up</Text>
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
               You have seen everyone nearby. Adjust your filters or check back soon.
@@ -110,48 +117,50 @@ export default function DiscoverScreen() {
       {/* Action Buttons */}
       {!isEmpty && (
         <View style={[styles.actions, { paddingBottom: bottomPaddingWeb }]}>
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.undoBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={handleUndo}
-          >
-            <Feather name="rotate-ccw" size={18} color={colors.mutedForeground} />
-          </TouchableOpacity>
+          <View style={[styles.actionFloating, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={styles.actionInner}
+              onPress={handleUndo}
+            >
+              <Feather name="rotate-ccw" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.skipBtn]}
-            onPress={() => {
-              if (topProfile) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                handleSwipe(topProfile.id, 'skip');
-              }
-            }}
-          >
-            <Feather name="x" size={28} color={colors.skip} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionInner, styles.skipInner, { backgroundColor: colors.muted }]}
+              onPress={() => {
+                if (topProfile) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleSwipe(topProfile.id, 'skip');
+                }
+              }}
+            >
+              <Feather name="x" size={26} color="#64748B" />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.shortlistBtn]}
-            onPress={() => {
-              if (topProfile) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                handleSwipe(topProfile.id, 'shortlist');
-              }
-            }}
-          >
-            <Feather name="bookmark" size={22} color={colors.shortlist} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionInner, styles.likeInner, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                if (topProfile) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  handleSwipe(topProfile.id, 'like');
+                }
+              }}
+            >
+              <Feather name="heart" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.likeBtn]}
-            onPress={() => {
-              if (topProfile) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                handleSwipe(topProfile.id, 'like');
-              }
-            }}
-          >
-            <Feather name="heart" size={28} color={colors.like} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionInner}
+              onPress={() => {
+                if (topProfile) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  handleSwipe(topProfile.id, 'shortlist');
+                }
+              }}
+            >
+              <Feather name="bookmark" size={17} color={colors.warning} />
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -177,9 +186,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
   },
-  logo: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  logoText: { fontSize: 22, fontWeight: '700', letterSpacing: -0.3 },
+  logoBadge: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  logoBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   headerRight: { flexDirection: 'row', gap: 10 },
   iconBtn: {
     width: 40,
@@ -206,10 +224,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  empty: {
+  empty: { alignItems: 'center', paddingHorizontal: 32, gap: 12 },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: 'center',
-    paddingHorizontal: 32,
-    gap: 12,
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   emptyTitle: { fontSize: 22, fontWeight: '700' },
   emptyText: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
@@ -221,36 +243,37 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: { fontSize: 15, fontWeight: '700' },
   actions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 14,
     paddingHorizontal: 20,
     paddingTop: 12,
   },
-  actionBtn: {
+  actionFloating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 40,
+    borderWidth: 1,
+    shadowColor: '#0284C7',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  actionInner: {
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  undoBtn: {
     width: 44,
     height: 44,
-    borderWidth: 1,
   },
-  skipBtn: {
-    width: 62,
-    height: 62,
-    backgroundColor: '#FEF2F2',
+  skipInner: {
+    width: 56,
+    height: 56,
   },
-  shortlistBtn: {
-    width: 52,
-    height: 52,
-    backgroundColor: '#FFFBEB',
-  },
-  likeBtn: {
-    width: 62,
-    height: 62,
-    backgroundColor: '#F0FDF4',
+  likeInner: {
+    width: 64,
+    height: 64,
   },
 });

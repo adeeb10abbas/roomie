@@ -70,8 +70,10 @@ artifacts/mobile/
 
 ## User preferences
 
-- App name: RoomieMatch
-- Color palette: primary #E8446A (coral/rose), background #FAF8F5 (warm off-white)
+- App name: RoomieMatch (header branding: "Roomie" + "AI" badge)
+- Color palette: primary #0284C7 (sky-600), primaryLight #F0F9FF (sky-50), primaryMedium #E0F2FE (sky-100), background #F8FBFF, foreground #0F172A (slate-900)
+- Tab bar active: sky primary tint; section icon backgrounds: sky-100 rounded squares
+- Match score badges: emerald ≥85%, amber ≥70%, sky <70%
 - Feature list from attached document (May 2026) — full MVP coverage
 
 ## Gotchas

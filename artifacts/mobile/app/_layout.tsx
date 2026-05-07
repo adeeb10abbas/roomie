@@ -32,7 +32,8 @@ function RootLayoutNav() {
           presentation: 'modal',
           headerShown: true,
           headerTitle: 'Filters',
-          headerTintColor: '#E8446A',
+          headerTintColor: '#0284C7',
+          headerStyle: { backgroundColor: '#F8FBFF' },
         }}
       />
       <Stack.Screen
@@ -62,7 +63,8 @@ function RootLayoutNav() {
         options={{
           headerShown: true,
           headerTitle: 'Settings',
-          headerTintColor: '#E8446A',
+          headerTintColor: '#0284C7',
+          headerStyle: { backgroundColor: '#F8FBFF' },
         }}
       />
       <Stack.Screen
@@ -70,7 +72,8 @@ function RootLayoutNav() {
         options={{
           headerShown: true,
           headerTitle: 'Edit Profile',
-          headerTintColor: '#E8446A',
+          headerTintColor: '#0284C7',
+          headerStyle: { backgroundColor: '#F8FBFF' },
         }}
       />
       <Stack.Screen
@@ -78,7 +81,8 @@ function RootLayoutNav() {
         options={{
           headerShown: true,
           headerTitle: 'Shortlist',
-          headerTintColor: '#E8446A',
+          headerTintColor: '#0284C7',
+          headerStyle: { backgroundColor: '#F8FBFF' },
         }}
       />
     </Stack>

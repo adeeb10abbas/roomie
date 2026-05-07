@@ -1,16 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity,
-  Animated, Dimensions,
+  Animated,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { RoommateProfile } from '@/context/types';
 import { getProfileImage } from '@/utils/images';
-import { useColors } from '@/hooks/useColors';
-
-const { width, height } = Dimensions.get('window');
 
 interface Props {
   visible: boolean;
@@ -20,7 +17,6 @@ interface Props {
 }
 
 export default function MatchModal({ visible, profile, onClose, onMessage }: Props) {
-  const colors = useColors();
   const scale = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -41,10 +37,15 @@ export default function MatchModal({ visible, profile, onClose, onMessage }: Pro
     <Modal visible={visible} transparent animationType="none">
       <Animated.View style={[styles.overlay, { opacity }]}>
         <LinearGradient
-          colors={['rgba(232,68,106,0.95)', 'rgba(180,30,70,0.98)']}
+          colors={['rgba(2,132,199,0.97)', 'rgba(3,105,161,0.99)']}
           style={StyleSheet.absoluteFill}
         />
         <Animated.View style={[styles.content, { transform: [{ scale }] }]}>
+          <View style={styles.sparkleRow}>
+            <Text style={styles.sparkle}>✦</Text>
+            <Text style={styles.sparkle}>✦</Text>
+            <Text style={styles.sparkle}>✦</Text>
+          </View>
           <Text style={styles.title}>It's a Match!</Text>
           <Text style={styles.subtitle}>
             You and {profile.name} both want to connect
@@ -56,7 +57,7 @@ export default function MatchModal({ visible, profile, onClose, onMessage }: Pro
               style={styles.photo}
               contentFit="cover"
             />
-            <View style={[styles.matchBadge, { backgroundColor: colors.primary }]}>
+            <View style={styles.matchBadge}>
               <Text style={styles.matchScore}>{profile.matchScore}%</Text>
             </View>
           </View>
@@ -66,7 +67,7 @@ export default function MatchModal({ visible, profile, onClose, onMessage }: Pro
 
           <View style={styles.actions}>
             <TouchableOpacity
-              style={[styles.btn, styles.messageBtn]}
+              style={styles.messageBtn}
               onPress={onMessage}
             >
               <Text style={styles.messageBtnText}>Send a Message</Text>
@@ -90,6 +91,15 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     paddingHorizontal: 32,
+  },
+  sparkleRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 8,
+  },
+  sparkle: {
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.6)',
   },
   title: {
     fontSize: 36,
@@ -125,6 +135,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    backgroundColor: '#059669',
   },
   matchScore: {
     color: '#FFFFFF',
@@ -146,18 +157,16 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 12,
   },
-  btn: {
+  messageBtn: {
     paddingVertical: 16,
     borderRadius: 32,
     alignItems: 'center',
-  },
-  messageBtn: {
     backgroundColor: '#FFFFFF',
   },
   messageBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#E8446A',
+    color: '#0284C7',
   },
   skipBtn: {
     paddingVertical: 12,

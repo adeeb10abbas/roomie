@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -8,6 +8,13 @@ import { router } from 'expo-router';
 import { useApp } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import ConversationItem from '@/components/ConversationItem';
+
+const PROMPT_CHIPS = [
+  'Ask about cleanliness',
+  'Ask about guest rules',
+  'Ask about move-in timing',
+  'Ask about quiet hours',
+];
 
 export default function MessagesScreen() {
   const colors = useColors();
@@ -22,7 +29,7 @@ export default function MessagesScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPadding }]}>
+      <View style={[styles.header, { paddingTop: topPadding, borderBottomColor: colors.border }]}>
         <View>
           <Text style={[styles.title, { color: colors.foreground }]}>Messages</Text>
           {totalUnread > 0 && (
@@ -32,7 +39,7 @@ export default function MessagesScreen() {
           )}
         </View>
         <TouchableOpacity
-          style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[styles.iconBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primaryMedium }]}
         >
           <Feather name="edit-2" size={17} color={colors.primary} />
         </TouchableOpacity>
@@ -40,42 +47,60 @@ export default function MessagesScreen() {
 
       {matches.length === 0 ? (
         <View style={styles.empty}>
-          <Feather name="message-circle" size={52} color={colors.mutedForeground} />
+          <View style={[styles.emptyIconWrap, { backgroundColor: colors.primaryLight }]}>
+            <Feather name="message-circle" size={36} color={colors.primary} />
+          </View>
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No matches yet</Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            Start swiping in Discover to find your future roommate
+            Start swiping in Match to find your future roommate
           </Text>
           <TouchableOpacity
             style={[styles.discoverBtn, { backgroundColor: colors.primary }]}
             onPress={() => router.push('/(tabs)')}
           >
             <Text style={[styles.discoverBtnText, { color: colors.primaryForeground }]}>
-              Go to Discover
+              Go to Match
             </Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={matches}
-          keyExtractor={m => m.id}
-          renderItem={({ item }) => (
-            <ConversationItem
-              match={item}
-              onPress={() => router.push(`/chat/${item.id}`)}
-            />
-          )}
-          contentContainerStyle={{ paddingBottom: bottomPadding }}
-          scrollEnabled={matches.length > 0}
+        <ScrollView
+          contentContainerStyle={{ paddingTop: 16, paddingBottom: bottomPadding }}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <View style={[styles.matchBanner, { backgroundColor: colors.primaryLight }]}>
-              <Text style={[styles.matchBannerText, { color: colors.primary }]}>
-                {matches.length} match{matches.length !== 1 ? 'es' : ''}
-              </Text>
+        >
+          {/* Matches Count Banner */}
+          <View style={[styles.matchBanner, { backgroundColor: colors.primaryLight, marginHorizontal: 16, marginBottom: 12 }]}>
+            <View style={[styles.matchBannerIcon, { backgroundColor: colors.primaryMedium }]}>
               <Feather name="heart" size={14} color={colors.primary} />
             </View>
-          }
-        />
+            <Text style={[styles.matchBannerText, { color: colors.primary }]}>
+              {matches.length} match{matches.length !== 1 ? 'es' : ''}
+            </Text>
+          </View>
+
+          {/* Prompt Chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chips}
+            style={styles.chipsScroll}
+          >
+            {PROMPT_CHIPS.map(chip => (
+              <View key={chip} style={[styles.chip, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Text style={[styles.chipText, { color: colors.foreground }]}>{chip}</Text>
+              </View>
+            ))}
+          </ScrollView>
+
+          {/* Conversation List */}
+          {matches.map(match => (
+            <ConversationItem
+              key={match.id}
+              match={match}
+              onPress={() => router.push(`/chat/${match.id}`)}
+            />
+          ))}
+        </ScrollView>
       )}
     </View>
   );
@@ -89,6 +114,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingBottom: 14,
+    borderBottomWidth: 1,
   },
   title: { fontSize: 26, fontWeight: '800' },
   subtitle: { fontSize: 13, marginTop: 2 },
@@ -104,12 +130,28 @@ const styles = StyleSheet.create({
   matchBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    gap: 8,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    marginBottom: 4,
+    borderRadius: 16,
   },
-  matchBannerText: { fontSize: 13, fontWeight: '600' },
+  matchBannerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  matchBannerText: { fontSize: 14, fontWeight: '600' },
+  chipsScroll: { marginBottom: 12 },
+  chips: { paddingHorizontal: 16, gap: 8 },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  chipText: { fontSize: 13 },
   empty: {
     flex: 1,
     alignItems: 'center',
@@ -117,13 +159,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     gap: 12,
   },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyTitle: { fontSize: 20, fontWeight: '700' },
   emptyText: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
-  discoverBtn: {
-    marginTop: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 13,
-    borderRadius: 28,
-  },
+  discoverBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 13, borderRadius: 28 },
   discoverBtnText: { fontSize: 15, fontWeight: '700' },
 });
