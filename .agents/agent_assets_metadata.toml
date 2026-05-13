@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "o9Ze9WRdH3xz5wqIF6oIg"
@@ -36,3 +35,9 @@ id = "0tpkBSzmAU8onbizpPqeE"
 uri = "file://artifacts/mobile/assets/images/profile5.png"
 type = "image"
 title = "profile photo woman working"
+
+[[outputs]]
+id = "hf5ZNZCvt2tvH0sgQoWZw"
+uri = "file://README.md"
+type = "text"
+title = "RoomieMatch README"
