@@ -1,10 +1,22 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   UserProfile, RoommateProfile, SwipeAction, Match,
   Message, HousingListing, FilterSettings,
 } from './types';
-import { apiFetch, API_BASE, getStoredToken, storeToken, clearToken, setUnauthorizedHandler } from '@/utils/api';
+import {
+  apiFetch,
+  API_BASE,
+  getStoredToken,
+  storeToken,
+  clearToken,
+  getStoredRefreshToken,
+  storeRefreshToken,
+  clearRefreshToken,
+  setUnauthorizedHandler,
+  setTokenRefreshedHandler,
+} from '@/utils/api';
 import { uniqueId } from '@/utils/time';
 import { router } from 'expo-router';
 import { useSocket, SocketStatus } from '@/hooks/useSocket';
@@ -30,6 +42,7 @@ const DEFAULT_FILTERS: FilterSettings = {
 
 interface AuthResult {
   token: string;
+  refreshToken?: string;
   userId: string;
   email: string;
   hasProfile: boolean;
@@ -104,7 +117,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // DELETE call without going through apiFetch's 401 handler (which would
     // trigger a recursive logout loop).
     const jwtToken = await getStoredToken();
+
+    // Tell the server to revoke all refresh tokens and clear the httpOnly cookie.
+    // This must happen before local cleanup so the token is still available.
+    // We proceed with local logout even if the network call fails.
+    try {
+      if (jwtToken) {
+        await fetch(`${API_BASE}/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwtToken}`,
+            ...(Platform.OS !== 'web' ? { 'X-Client-Type': 'native' } : {}),
+          },
+          ...(Platform.OS === 'web' ? { credentials: 'include' } : {}),
+        });
+      }
+    } catch {
+      // Network failure — local cleanup still proceeds
+    }
+
     await clearToken();
+    await clearRefreshToken();
     if (currentUserId && jwtToken) {
       await unregisterPushNotifications(currentUserId, jwtToken);
     }
@@ -129,6 +163,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [logout]);
 
   useEffect(() => {
+    // Keep authToken state in sync when apiFetch silently refreshes the access token.
+    // authToken is used by the socket for reconnection — stale token would cause
+    // reconnect failures if the socket disconnects after a silent refresh.
+    setTokenRefreshedHandler((newToken: string) => {
+      setAuthToken(newToken);
+    });
+  }, []);
+
+  useEffect(() => {
     loadInitialData();
   }, []);
 
@@ -148,22 +191,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadInitialData = async () => {
     try {
       const token = await getStoredToken();
-      if (!token) {
-        setLoading(false);
-        return;
-      }
 
       const filtersStr = await AsyncStorage.getItem('filters');
       if (filtersStr) setFiltersState(JSON.parse(filtersStr));
 
-      const payload = parseJwt(token);
-      if (!payload?.userId) {
-        // Token is invalid or expired — clear it
+      // If there is no access token (or it's expired), attempt a silent refresh.
+      // On web: getStoredRefreshToken() returns null because cookies are httpOnly
+      //   and not accessible to JS — but we still try the refresh endpoint since
+      //   the browser will automatically send the refresh_token cookie.
+      // On native: we read the raw token from SecureStore and send it in the body.
+      const needsRefresh = !token || !parseJwt(token)?.userId;
+
+      if (needsRefresh) {
+        const nativeRefreshToken = await getStoredRefreshToken(); // null on web (expected)
+        const canAttempt = nativeRefreshToken !== null || Platform.OS === 'web';
+        if (canAttempt) {
+          const refreshed = await tryRefreshOnStartup(nativeRefreshToken ?? '');
+          if (refreshed) {
+            // Re-enter with the newly stored access token
+            await loadInitialData();
+            return;
+          }
+        }
+        // No refresh possible — clear local state and send to login
         await clearToken();
+        await clearRefreshToken();
         await AsyncStorage.multiRemove(['currentUser']);
         setLoading(false);
         return;
       }
+
+      // At this point token is valid and parseable
+      const payload = parseJwt(token!)!;
 
       setUserId(payload.userId);
       setIsAuthenticated(true);
@@ -194,16 +253,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch {
       // On any unexpected error, clear potentially corrupted auth state
       await clearToken();
+      await clearRefreshToken();
       await AsyncStorage.multiRemove(['currentUser']);
     } finally {
       setLoading(false);
     }
   };
 
+  // Auth entry-point fetches bypass apiFetch (no token yet), so we manually
+  // add X-Client-Type: native for native clients so the server knows to include
+  // the refresh token in the JSON body (web clients rely on httpOnly cookie).
+  const authHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(Platform.OS !== 'web' ? { 'X-Client-Type': 'native' } : {}),
+  };
+
   const login = async (email: string, password: string): Promise<AuthResult> => {
     const result = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ email, password }),
     });
 
@@ -214,6 +282,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const data = await result.json() as AuthResult;
     await storeToken(data.token);
+    if (data.refreshToken) await storeRefreshToken(data.refreshToken);
     setAuthToken(data.token);
     setUserId(data.userId);
     setIsAuthenticated(true);
@@ -225,7 +294,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const register = async (name: string, email: string, password: string): Promise<AuthResult> => {
     const result = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ name, email, password }),
     });
 
@@ -236,6 +305,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const data = await result.json() as AuthResult;
     await storeToken(data.token);
+    if (data.refreshToken) await storeRefreshToken(data.refreshToken);
     setAuthToken(data.token);
     setUserId(data.userId);
     setIsAuthenticated(true);
@@ -251,7 +321,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ): Promise<AuthResult> => {
     const result = await fetch(`${API_BASE}/auth/oauth`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ provider, idToken, name }),
     });
 
@@ -262,6 +332,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const data = await result.json() as AuthResult;
     await storeToken(data.token);
+    if (data.refreshToken) await storeRefreshToken(data.refreshToken);
     setAuthToken(data.token);
     setUserId(data.userId);
     setIsAuthenticated(true);
@@ -614,6 +685,50 @@ function parseJwt(token: string): { userId: string; email: string; exp?: number 
     return payload as { userId: string; email: string; exp?: number };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Attempts to silently refresh the access token on app startup.
+ *
+ * Web:    sends no refresh token in the body — relies on the httpOnly cookie
+ *         that the server set on login/register. Uses credentials:"include".
+ *
+ * Native: sends the raw refresh token from SecureStore in the request body.
+ *
+ * On success, stores the new access token (and refresh token for native)
+ * and returns true. Returns false on any failure.
+ */
+async function tryRefreshOnStartup(nativeRefreshToken: string): Promise<boolean> {
+  try {
+    if (Platform.OS === 'web') {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) return false;
+      const data = (await res.json()) as { token: string };
+      if (!data.token) return false;
+      await storeToken(data.token);
+      return true;
+    }
+
+    // Native: send refresh token in body with client type header
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Client-Type': 'native' },
+      body: JSON.stringify({ refreshToken: nativeRefreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { token: string; refreshToken: string };
+    if (!data.token || !data.refreshToken) return false;
+    await storeToken(data.token);
+    await storeRefreshToken(data.refreshToken);
+    return true;
+  } catch {
+    return false;
   }
 }
 

@@ -36,6 +36,13 @@
       "when": 1778164346034,
       "tag": "0004_famous_squadron_sinister",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778380496170,
+      "tag": "0005_sharp_quasar",
+      "breakpoints": true
     }
   ]
 }

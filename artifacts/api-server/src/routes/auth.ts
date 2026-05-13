@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import { db, usersTable, authCredentialsTable } from "@workspace/db";
 import {
@@ -6,14 +6,69 @@ import {
   LoginRequestSchema,
   OAuthRequestSchema,
   AuthResponseSchema,
+  RefreshRequestSchema,
+  RefreshResponseSchema,
 } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
-import { signToken } from "../middlewares/auth";
+import { signToken, createRefreshToken, rotateRefreshToken, revokeAllRefreshTokens, requireAuth } from "../middlewares/auth";
 import { sendValidated } from "../utils/validateResponse";
 import { randomUUID } from "crypto";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
+
+const REFRESH_COOKIE = "refresh_token";
+const REFRESH_COOKIE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+/**
+ * Returns true when this request was NOT made by a browser.
+ *
+ * Browsers always include an Origin header on POST/PUT/PATCH/DELETE requests
+ * (both same-origin and cross-origin) as of current browser engines.  This header
+ * is controlled by the browser itself and cannot be suppressed by page-level JS,
+ * so an XSS attack cannot fake a "native" context by removing Origin.
+ *
+ * Native Expo apps (iOS / Android) do not set Origin at all.
+ *
+ * Use for login / register / oauth — endpoints where a new refresh token is being
+ * issued for the first time.
+ */
+function isNativeOriginCheck(req: Request): boolean {
+  return !req.headers["origin"];
+}
+
+/**
+ * For /auth/refresh ONLY: use the transport mechanism itself as the discriminator.
+ *
+ * If the client supplied the refresh token in the request body it must have known
+ * the raw value — something a browser-based XSS attack cannot achieve because the
+ * refresh token is stored in an httpOnly cookie that JS cannot read.  Therefore, a
+ * non-empty bodyToken is proof of a native client.
+ *
+ * If the token arrived only via the httpOnly cookie (bodyToken is absent), the
+ * request came from a browser → never return raw refreshToken in the JSON body.
+ */
+function isNativeRefreshTransport(bodyToken: string | undefined): boolean {
+  return !!bodyToken;
+}
+
+/**
+ * Sets the refresh token as an httpOnly, Secure, SameSite=Strict cookie.
+ * This prevents JS on the web client from reading the token (XSS mitigation).
+ */
+function setRefreshCookie(res: Response, rawToken: string): void {
+  res.cookie(REFRESH_COOKIE, rawToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+    maxAge: REFRESH_COOKIE_TTL_MS,
+    path: "/api/auth",
+  });
+}
+
+function clearRefreshCookie(res: Response): void {
+  res.clearCookie(REFRESH_COOKIE, { path: "/api/auth" });
+}
 
 router.post("/auth/register", async (req, res) => {
   const parsed = RegisterRequestSchema.safeParse(req.body);
@@ -75,9 +130,13 @@ router.post("/auth/register", async (req, res) => {
   });
 
   const token = signToken({ userId, email: email.toLowerCase() });
+  const refreshToken = await createRefreshToken(userId);
 
+  setRefreshCookie(res, refreshToken);
   sendValidated(res, AuthResponseSchema, {
     token,
+    // Only include raw refresh token in body for native clients (Origin absent → native)
+    ...(isNativeOriginCheck(req) ? { refreshToken } : {}),
     userId,
     email: email.toLowerCase(),
     hasProfile: false,
@@ -131,13 +190,81 @@ router.post("/auth/login", async (req, res) => {
   const hasProfile = user.length > 0 && user[0].age > 0 && user[0].name.trim().length > 0;
 
   const token = signToken({ userId: cred.userId, email: cred.email });
+  const refreshToken = await createRefreshToken(cred.userId);
 
+  setRefreshCookie(res, refreshToken);
   sendValidated(res, AuthResponseSchema, {
     token,
+    ...(isNativeOriginCheck(req) ? { refreshToken } : {}),
     userId: cred.userId,
     email: cred.email,
     hasProfile,
   });
+});
+
+/**
+ * Refresh access + refresh tokens.
+ *
+ * Accepts the current refresh token from EITHER:
+ *   - Request body `{ refreshToken }` — used by native mobile clients
+ *   - httpOnly cookie `refresh_token`  — used by web clients (set automatically by browser)
+ *
+ * Revokes the consumed token (rotation) and issues a new token pair.
+ * Returns 401 if the refresh token is invalid, expired, or already revoked.
+ */
+router.post("/auth/refresh", async (req, res) => {
+  // Validate the body (refreshToken is optional — web clients send empty body)
+  const parsed = RefreshRequestSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request", details: parsed.error.issues });
+    return;
+  }
+
+  // Prefer body token (native) over cookie (web) — both are supported
+  const rawToken: string | undefined =
+    parsed.data.refreshToken || (req.cookies as Record<string, string>)[REFRESH_COOKIE];
+
+  if (!rawToken) {
+    res.status(401).json({ error: "Refresh token required" });
+    return;
+  }
+
+  const result = await rotateRefreshToken(rawToken);
+  if (!result) {
+    clearRefreshCookie(res);
+    res.status(401).json({ error: "Invalid or expired refresh token" });
+    return;
+  }
+
+  // Fetch email for the new access token payload
+  const creds = await db
+    .select()
+    .from(authCredentialsTable)
+    .where(eq(authCredentialsTable.userId, result.userId))
+    .limit(1);
+
+  const email = creds[0]?.email ?? "";
+  const token = signToken({ userId: result.userId, email });
+
+  // Set the new refresh token as an httpOnly cookie (for web)
+  setRefreshCookie(res, result.newRawToken);
+
+  sendValidated(res, RefreshResponseSchema, {
+    token,
+    // Body-supplied token means the client knew the raw value → native transport
+    // (web clients cannot read httpOnly cookies, so cannot supply body token)
+    ...(isNativeRefreshTransport(parsed.data.refreshToken) ? { refreshToken: result.newRawToken } : {}),
+  });
+});
+
+/**
+ * Logout — revokes all refresh tokens for the user and clears the cookie.
+ * Requires a valid access token so we know who is logging out.
+ */
+router.post("/auth/logout", requireAuth, async (req, res) => {
+  await revokeAllRefreshTokens(req.userId);
+  clearRefreshCookie(res);
+  res.json({ ok: true });
 });
 
 /**
@@ -267,7 +394,7 @@ async function verifyAppleIdToken(
 /**
  * OAuth sign-in / sign-up.
  * Accepts a Google or Apple ID token, verifies it server-side via JWKS/tokeninfo,
- * then creates (or retrieves) a user and returns a signed JWT.
+ * then creates (or retrieves) a user and returns a signed JWT + refresh token.
  *
  * Google: verified via Google tokeninfo (enforces aud if GOOGLE_CLIENT_ID is set).
  * Apple: verified via Apple JWKS endpoint with full signature + claim validation.
@@ -333,9 +460,13 @@ router.post("/auth/oauth", async (req, res) => {
       .limit(1);
 
     const hasProfile = user.length > 0 && user[0].age > 0;
+    const token = signToken({ userId: cred.userId, email: cred.email });
+    const refreshToken = await createRefreshToken(cred.userId);
 
+    setRefreshCookie(res, refreshToken);
     sendValidated(res, AuthResponseSchema, {
-      token: signToken({ userId: cred.userId, email: cred.email }),
+      token,
+      ...(isNativeOriginCheck(req) ? { refreshToken } : {}),
       userId: cred.userId,
       email: cred.email,
       hasProfile,
@@ -385,8 +516,13 @@ router.post("/auth/oauth", async (req, res) => {
       .where(eq(usersTable.id, cred.userId))
       .limit(1);
 
+    const token = signToken({ userId: cred.userId, email });
+    const refreshToken = await createRefreshToken(cred.userId);
+
+    setRefreshCookie(res, refreshToken);
     sendValidated(res, AuthResponseSchema, {
-      token: signToken({ userId: cred.userId, email }),
+      token,
+      ...(isNativeOriginCheck(req) ? { refreshToken } : {}),
       userId: cred.userId,
       email,
       hasProfile: user.length > 0 && user[0].age > 0,
@@ -437,8 +573,13 @@ router.post("/auth/oauth", async (req, res) => {
 
   logger.info({ provider, userId }, "New OAuth user created");
 
+  const token = signToken({ userId, email });
+  const refreshToken = await createRefreshToken(userId);
+
+  setRefreshCookie(res, refreshToken);
   sendValidated(res, AuthResponseSchema, {
-    token: signToken({ userId, email }),
+    token,
+    ...(isNativeOriginCheck(req) ? { refreshToken } : {}),
     userId,
     email,
     hasProfile: false,
