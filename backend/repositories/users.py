@@ -2,8 +2,8 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from db.models.users import User
-from db.schemas.users import UserCreate, UserUpdate
+from db.models.identity.users import User
+from db.schemas.identity.users import UserCreate, UserUpdate
 
 
 def get_by_id(db: Session, user_id: uuid.UUID) -> User | None:

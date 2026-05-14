@@ -21,7 +21,8 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 from db.base import Base
-import db.models.users  # noqa: F401 — registers models with Base
+import db.models.identity.users  # noqa: F401 — registers User with Base
+import db.models.identity.devices  # noqa: F401 — registers Device with Base
 
 target_metadata = Base.metadata
 
