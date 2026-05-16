@@ -3,8 +3,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from db.schemas.users import User as UserSchema
-from db.schemas.users import UserCreate, UserUpdate
+from db.schemas.identity.users import User as UserSchema
+from db.schemas.identity.users import UserCreate, UserUpdate
 from db.session import get_db
 from services import users as users_service
 

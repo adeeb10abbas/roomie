@@ -117,7 +117,7 @@ Open `alembic/env.py` and add an import for the new model so it gets registered 
 
 ```python
 # alembic/env.py
-import db.models.users   # already present
+import db.models.identity.users  # already present
 import db.models.listings  # add new model here
 ```
 
