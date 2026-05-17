@@ -23,6 +23,7 @@ if config.config_file_name is not None:
 from db.base import Base
 import db.models.identity.users  # noqa: F401 — registers User with Base
 import db.models.identity.devices  # noqa: F401 — registers Device with Base
+import db.models.profile.profiles  # noqa: F401 — registers Profile with Base
 
 target_metadata = Base.metadata
 
