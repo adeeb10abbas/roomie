@@ -13,7 +13,8 @@ load_dotenv()
 # access to the values within the .ini file in use.
 config = context.config
 
-config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
+db_url = os.environ["DATABASE_URL"].replace("postgres://", "postgresql://", 1)
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -25,8 +26,18 @@ import db.models.identity.users  # noqa: F401 — registers User with Base
 import db.models.identity.devices  # noqa: F401 — registers Device with Base
 import db.models.profile.profiles  # noqa: F401 — registers Profile with Base
 import db.models.profile.profile_prompts  # noqa: F401 — registers ProfilePrompt with Base
+import db.models.preferences.lifestyle_preferences  # noqa: F401 — registers LifestylePreferences with Base
+import db.models.preferences.filter_preferences  # noqa: F401 — registers FilterPreferences with Base
 
 target_metadata = Base.metadata
+
+POSTGIS_TABLES = {"spatial_ref_sys", "topology", "layer", "raster_columns", "raster_overviews"}
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table" and name in POSTGIS_TABLES:
+        return False
+    return True
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -52,6 +63,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -73,7 +85,9 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
