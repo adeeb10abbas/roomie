@@ -1,0 +1,976 @@
+# RoomieMatch — MVP Completion Prompt for Replit Agent
+
+> **Paste this entire document to the Replit Agent. It is intentionally explicit so the agent does not invent conventions, skip files, or guess at schema or visual design.** Treat each phase as a self-contained, testable unit of work — finish, verify, then move on. The prototype at `attached_assets/roomieai_prototype_LATEST.jsx` is the **canonical visual reference** — when an existing component conflicts with the prototype, prefer the prototype.
+
+---
+
+## 0. Context the agent must read first
+
+You are working in an existing **pnpm workspaces** monorepo called **RoomieMatch** — a Hinge-style mobile app for finding roommates, scoped to **verified college students** for the beta. The stack is built and running; you are **not** starting from scratch. Your job is to fill in the missing MVP features without breaking existing conventions.
+
+Before writing any code, read in this order:
+
+1. `/README.md`
+2. `/replit.md`
+3. `/MVP_NOT_IMPLEMENTED.md`
+4. **`/attached_assets/roomieai_prototype_LATEST.jsx`** — the visual & UX reference for every screen below. Match its colors, badges, layouts, copy, and interaction patterns.
+5. `/lib/db/src/schema/*` — every Drizzle schema file
+6. `/lib/api-zod/src/schemas.ts` and `/lib/api-zod/src/auth-schemas.ts`
+7. `/artifacts/api-server/src/routes/index.ts`
+8. `/artifacts/api-server/src/middlewares/auth.ts` — use `requireAuth` on every protected route
+9. `/artifacts/api-server/src/utils/validateResponse.ts` — every JSON response goes through `sendValidated()`
+10. `/artifacts/mobile/context/AppContext.tsx` — global state pattern; mobile screens never call `apiFetch` directly
+11. `/artifacts/mobile/app/onboarding.tsx` and `/artifacts/mobile/app/filters.tsx` — UI style references
+
+### Hard conventions — do not violate these
+
+- **Database**: Drizzle ORM, PostgreSQL. Every new table goes in `lib/db/src/schema/<name>.ts` AND is re-exported from `lib/db/src/schema/index.ts`. Primary keys are `text("id").primaryKey()` populated by `randomUUID()` from `node:crypto`. Foreign keys to users use `.references(() => usersTable.id, { onDelete: "cascade" })`.
+- **Migrations**: After every schema change, run `pnpm --filter @workspace/db run generate` to produce a migration in `lib/db/migrations/`, then `pnpm --filter @workspace/db run push` to apply it in dev. Do NOT hand-write SQL migration files.
+- **API routes**: One Express router per concern under `artifacts/api-server/src/routes/<name>.ts`. Mount it in `routes/index.ts`. Every route uses `requireAuth` unless explicitly public (auth + health only). Every JSON response goes through `sendValidated(res, SomeZodSchema, payload)`.
+- **Zod contracts**: New request/response shapes go in `lib/api-zod/src/schemas.ts` (or a new file re-exported from `lib/api-zod/src/index.ts`). Use **Zod v4** (`import { z } from "zod/v4"`).
+- **Mobile state**: All new server interactions add an `apiFetch` wrapper in `artifacts/mobile/context/AppContext.tsx`, exposed through the `useApp()` hook. Do not call `apiFetch` directly from screens.
+- **Theming**: Use the `useColors()` hook from `@/hooks/useColors` for every color. Never hard-code hex values in screens. If a prototype color isn't yet in the palette (e.g. emerald-100/700 for verified, amber-100/700 for sublets), add it to the palette in one place.
+- **Logging**: In route handlers use `req.log.info/warn/error(...)`. Elsewhere import `logger` from `../lib/logger`. **Never `console.log` in server code.**
+- **Ports**: Always read `process.env.PORT`. Never hard-code `8080`.
+- **Images**: Static `require()` for bundled assets must be a literal string. Dynamic photo URLs use `<Image source={{ uri }} />` from `expo-image`.
+- **Auth header**: Mobile sends `Authorization: Bearer <token>` (handled by `utils/api.ts`). The userId is read from `req.userId` via `requireAuth` — never trust a client-supplied user ID.
+- **Canonical match pair ordering**: `user1Id` is always the lexicographically smaller of the two IDs.
+
+### What you must NOT do
+
+- Do not rewrite the auth flow. Email/password + JWT + refresh-token rotation already works.
+- Do not change the swipe / match algorithm core. You will **extend** `computeMatchScore` to use new fields.
+- Do not introduce a new ORM, state library, or styling system.
+- Do not add a native module that isn't supported by Expo Go.
+- Do not delete the existing `forming_group` listing type from the schema. It stays in the DB but is **hidden from the new Open Rooms tab** by default (see Phase 4).
+
+---
+
+## 1. Design language extracted from the prototype
+
+The prototype is the visual contract for every screen the user lands on after sign-in. Internalize these before touching any UI file.
+
+### 1.1 Color tokens (extend `useColors()` if any are missing)
+
+| Token | Hex / Tailwind | Used for |
+|---|---|---|
+| `primary` | `#0284C7` (sky-600) | CTAs, active tab tint, primary actions |
+| `primaryLight` | `#F0F9FF` (sky-50) | Chip backgrounds, fact cards, soft surfaces |
+| `primaryMedium` | `#E0F2FE` (sky-100) | Section icon backgrounds, borders |
+| `background` | `#F8FBFF` | Screen base |
+| `success` | emerald-700 `#047857`, with emerald-50/100 surfaces | Verified badge, "Permanent Room" listing, 85%+ match score, "Why you match" callout |
+| `warningSoft` | amber-700 `#B45309`, with amber-50/100 surfaces | Sublet badge, 70–84% match score |
+| `neutral` | slate-100/700 | Optional tags, secondary chips |
+
+Match-score color thresholds (already established): emerald ≥85%, amber ≥70%, sky <70%.
+
+### 1.2 Tab bar (the four bottom tabs)
+
+Rename **"Housing"** → **"Open Rooms"** everywhere visible (label, header titles, copy). Tab order: `Match · Messages · Open Rooms · Profile`. The internal route file can stay `(tabs)/housing.tsx` for git hygiene, but **every user-facing string** in the tab uses "Open Rooms".
+
+### 1.3 Card system
+
+- **Hero profile/listing cards**: 28px border radius, sky-100 border, a sky-tinted gradient hero strip on top, content card overlaid at the bottom with 22px radius and 85% white backdrop blur.
+- **Inner cards / list cards**: 24px border radius, sky-100 border, sky-50 inner accents.
+- **Shadow on hero cards**: `shadow-[0_18px_60px_-24px_rgba(14,165,233,0.45)]` or its RN equivalent. Use a soft sky-tinted drop shadow consistently for emphasis on Match and Profile.
+
+### 1.4 Pills, badges, and the "Verified" treatment
+
+- **Match score badge**: rounded-full, the tone classes above. Always shows `{n}% Match` (capital M).
+- **Verified badge**: shows the user's actual `.edu` domain, formatted as `Verified @neu.edu`. This appears (a) over the Match hero card, (b) inline next to the user's name on their own profile and on `user/[id].tsx`, (c) as a tiny shield in the corner of `ProfileCard` swipe cards.
+- **"Beta access · Student only"** pill: shown on every profile/match hero card (small, sky-50, sky-700 text, 11px uppercase tracking-wide label "BETA ACCESS" with "Student only" beneath).
+- **Listing type pills**: emerald-100/700 for `Permanent Room`, amber-100/700 for `Sublet`, slate-100/700 for the legacy `forming_group` (kept hidden by default).
+- **Filter chips** (when filters dropdown is open over the Match feed): sky-50 background, slate-700 text, rounded-full, comma-separated dense layout.
+
+### 1.5 Two-tier preference display on profile cards
+
+Every profile (Match hero, `user/[id].tsx`, own profile) shows two tag groups:
+
+1. **Core preferences** (section title with sparkle/home icon, sky-50 chips) — sleep, noise, cleanliness, smoking, drinking, guests, communication style, budget, neighborhoods.
+2. **Optional cultural/personal preferences** (section title with shield icon, slate-100 chips, displayed lower) — religion, language, free-form tags. Caption beneath: *"Shown lower on the profile and controlled by the user."* Religion and language only appear if the user filled them in; never inferred.
+
+### 1.6 "Why you match" callout
+
+Already exists in data (`matchBreakdown`). Render it as a single emerald-50 surface with an emerald-100 border, a sparkle icon, the title "Why you match", and a one-sentence summary that joins the **compatible** categories (e.g. *"Similar budget, same move-in timeline, same-gender preference, quiet home vibe, and overlapping neighborhoods."*). The detailed breakdown stays available as an expand/collapse.
+
+### 1.7 Match screen action pill
+
+The three swipe actions (skip / shortlist / like) sit in a **floating rounded-full pill** near the bottom of the screen above the tab bar — backdrop-blurred white, sky-100 border, with sizes: 52px skip, 52px shortlist (bookmark, amber), 64px like (sky-600 filled, heart). Haptic on each.
+
+### 1.8 Onboarding (8-step beta flow, see Phase 2)
+
+The prototype lays out the **beta-onboarding flow** as 8 ordered steps. Steps 1 and 2 (sign up + EDU verification) live outside the onboarding screen itself. The onboarding screen handles steps 3–8, but the *flow* the user experiences after first launch is the full 8-step march: sign up → verify → onboarding 6 screens → enter app.
+
+### 1.9 Open Rooms tab structure
+
+- Header right action: a primary sky-600 **"Create"** button (replaces the old plus FAB).
+- Sticky info card below the header: titled **"Open Housing"** with subtitle *"Simplified MVP housing mode for open rooms and sublets."*
+- Two segmented toggle pills under the info card: **"All open rooms"** | **"Sublets only"**. Active pill is sky-600 white, inactive is slate-100 slate-700. Tapping filters the list below.
+- Listing cards: 24px radius, a 112px sky-gradient hero strip on top, content beneath: type pill, name, rent/area/move-in inline row, stacked member avatars with caption *"Current roommate members"*, tag chips, description paragraph, and a sky-600 **"Request"** pill button top-right.
+
+### 1.10 Messages tab structure
+
+- Sticky info card at top: **"Direct messages only for MVP"** title, subtitle *"Group chats and AI conversation starters are deferred after beta."* (Tells users this is intentional, not missing.)
+- Conversation rows: 12px gap, avatar, name + match-score badge inline, timestamp right, preview text, unread count pill (sky-600 white).
+- **Safety actions card** at the bottom of the conversations list (sticky, 24px radius): three outlined pill buttons — `Unmatch` · `Block` · `Report` (red text for Report). Acts on the *currently selected* conversation. Caption beneath: *"Unmatched profiles will not reappear in the feed."*
+
+### 1.11 Profile tab structure
+
+- Hero gradient strip (sky-300 → sky-100 → white), 24px radius card overlay.
+- Top-right of the hero card: **profile completion percentage** as an emerald-100/700 rounded-full badge: `{n}% complete`.
+- Two-up sky-50 fact tiles beneath the header: `Student verification` (`Verified @neu.edu`) and `Beta access` (`Student only`).
+- **AI bio draft** section with three pill buttons: `Edit bio` · `Write my own` · `Regenerate`.
+- **Required profile info** section: emerald-50 chips listing the always-required fields the user has filled in.
+- **Optional but encouraged** section: slate-100 chips listing all the optional fields, with the caption *"More info = better matches, but optional fields stay lightweight."*
+- **Settings** section at the bottom: a vertical list of 24px-radius rows: `Notifications · Privacy · Matching preferences · Account management · Delete / deactivate account · Help / support · Feedback`. (Note: **Feedback** is new — wire it.)
+
+### 1.12 Copy guidelines
+
+The prototype's microcopy is calibrated; keep it. Reuse exact strings where shown: *"Direct messages only for MVP"*, *"Unmatched profiles will not reappear in the feed"*, *"Generated from onboarding answers, editable by the user"*, *"More info = better matches, but optional fields stay lightweight"*, *"Beta access · Student only"*, *"Verified @{domain}"*, *"Why you match"*, *"Current roommate members"*, *"Simplified MVP housing mode for open rooms and sublets"*.
+
+---
+
+## 2. Build order (8 phases)
+
+Each phase is independently shippable. **Complete one phase fully — schema → API → mobile → smoke test — before starting the next.** After each phase run:
+
+```bash
+pnpm run typecheck
+pnpm --filter @workspace/scripts run seed   # only if schema changed
+```
+
+| # | Phase | Why first |
+|---|---|---|
+| 1 | Student verification (.edu email + OTP + verified badge with domain) | Gates the beta and trust system |
+| 2 | Onboarding completion (6 onboarding screens, real photo, missing fields, prototype layout) | Unblocks AI bio + better matching |
+| 3 | Filter & matching parity (move-in, neighborhoods, lifestyle filters server-side; saved filter chips) | Existing UI promises filters that don't work |
+| 4 | Open Rooms (rename tab, create listing, sublet flow with optional review, join + approval) | Largest missing surface area; replaces "Housing" tab |
+| 5 | Safety (block, report, unmatch end-to-end; safety card on messages screen) | Required before opening to real users |
+| 6 | AI-assisted bio (three-button control: Edit · Write my own · Regenerate) | Depends on phase 2 data |
+| 7 | Profile completion % badge + verified-domain surfacing + two-tier preference display | Polish on top of 1+2 |
+| 8 | Settings & account lifecycle (privacy, delete, deactivate, help, **feedback**) | Cleanup; some items shippable in parallel |
+
+---
+
+## 3. Phase 1 — Student verification
+
+### Goal
+
+A user signs up with any email. Until they verify a `.edu` email with a 6-digit code, they are flagged `pendingVerification` and cannot enter Match, Open Rooms, or Messages. After verification, `isVerified = true`, a "Verified @{domain}" badge appears everywhere on their profile, and they unlock the app.
+
+### 3.1 Schema changes
+
+Edit `lib/db/src/schema/users.ts`:
+
+- Add `eduEmail: text("edu_email")` — nullable. The verified `.edu` address (distinct from login email so users can verify a student email separately).
+- Add `eduDomain: text("edu_domain")` — nullable. Cached lowercased domain (e.g. `"northeastern.edu"`). **This is the field the verified pill renders as `Verified @{eduDomain}`.**
+- Add `verifiedAt: timestamp("verified_at")` — nullable.
+- Keep `isVerified` boolean.
+
+Create `lib/db/src/schema/email_verifications.ts`:
+
+```ts
+import { pgTable, text, timestamp, integer, index } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
+
+export const emailVerificationsTable = pgTable(
+  "email_verifications",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+    eduEmail: text("edu_email").notNull(),
+    codeHash: text("code_hash").notNull(),         // bcrypt hash of 6-digit code
+    attempts: integer("attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at").notNull(),
+    consumedAt: timestamp("consumed_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("email_verifications_user_idx").on(t.userId)],
+);
+
+export type EmailVerification = typeof emailVerificationsTable.$inferSelect;
+```
+
+Re-export from `lib/db/src/schema/index.ts`.
+
+### 3.2 Allowed-domain helper
+
+Create `artifacts/api-server/src/utils/eduDomain.ts`:
+
+```ts
+export function isEduDomain(email: string): boolean {
+  const domain = email.toLowerCase().split("@")[1] ?? "";
+  if (domain.endsWith(".edu")) return true;
+  const extra = (process.env.EDU_DOMAIN_ALLOWLIST ?? "")
+    .split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  return extra.includes(domain);
+}
+export function extractDomain(email: string): string {
+  return (email.toLowerCase().split("@")[1] ?? "").trim();
+}
+```
+
+### 3.3 API routes
+
+Create `artifacts/api-server/src/routes/verification.ts`:
+
+- `POST /api/verification/request` — body `{ eduEmail }`. Requires auth. Validates `.edu`, generates 6-digit numeric code, bcrypt-hashes it, inserts with `expiresAt = now + 10min`, invalidates prior pending rows for this user. For dev, log code via `req.log.info({ code }, "edu verification code")`. Email sender behind env (`EMAIL_PROVIDER=resend|sendgrid|console`; `console` is default and prints to logs only). Response: `{ sent: true }`.
+- `POST /api/verification/confirm` — body `{ code }`. Looks up the latest non-consumed, non-expired row for `req.userId`. Increments `attempts`; rejects after 5. On match: marks `consumedAt`, sets `users.isVerified = true`, `eduEmail`, `eduDomain`, `verifiedAt`, appends `"verified_student"` to `users.badges`. Response: `{ verified: true }`.
+- `POST /api/verification/resend` — debounced (max 1/min per user). Reuses last `eduEmail`.
+- `GET /api/verification/status` — returns `VerificationStatusSchema`.
+
+Mount in `routes/index.ts`.
+
+Add Zod schemas in `lib/api-zod/src/schemas.ts`:
+
+```ts
+export const RequestVerificationSchema = z.object({ eduEmail: z.email() });
+export const ConfirmVerificationSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
+export const VerificationStatusSchema = z.object({
+  isVerified: z.boolean(),
+  eduEmail: z.string().nullable(),
+  eduDomain: z.string().nullable(),
+  pendingRequest: z.boolean(),
+});
+```
+
+### 3.4 Gating
+
+In `artifacts/api-server/src/middlewares/auth.ts`, do **not** add gating to `requireAuth`. Create a new exported `requireVerified` middleware that runs after `requireAuth`, queries `users.isVerified`, and 403s with `{ error: "verification_required" }` if false. Apply it to:
+
+- `profiles.ts` (GET /profiles, GET /profiles/:id)
+- `housing.ts` (every route)
+- `swipes.ts`
+- `matches.ts`
+- `messages.ts`
+
+Do NOT apply to `profile.ts` (/me) or `verification.ts`.
+
+### 3.5 Mobile
+
+Create `artifacts/mobile/app/verify-edu.tsx`:
+
+1. Step A: input for `.edu` email + "Send code" button → calls `requestVerification(eduEmail)`. Copy: *"Enter your school email to unlock the student beta."*
+2. Step B: 6-box code input + "Verify" + "Resend code" with 60s countdown.
+3. Success: route to `/(tabs)`. Failure: inline error states.
+
+Add `verifyEduRequest(eduEmail)` and `verifyEduConfirm(code)` to `AppContext.tsx`. Update post-login navigation: after login/register, if `!hasProfile` → `/onboarding`; else if `!currentUser.isVerified` → `/verify-edu`; else `/(tabs)`.
+
+In `utils/api.ts`, on a 403 with `error: "verification_required"`, redirect to `/verify-edu` (mirror existing 401 handling).
+
+### 3.6 Verified-badge component
+
+Update `components/Badge.tsx` to support a new variant `verified` that takes a `domain` prop and renders as `Verified @{domain}`. Style per §1.4 (rounded-full, emerald-100 background, emerald-700 text, with a small shield/check icon). Use this variant:
+
+- On the Match screen hero card (top-left, beside the match score)
+- Inline next to the user's name on `user/[id].tsx` and `(tabs)/profile.tsx`
+- As a tiny shield in the top-right corner of `components/ProfileCard.tsx` swipe cards
+
+### 3.7 Acceptance criteria
+
+- A new account cannot load `/profiles` (returns 403 `verification_required`) until verified.
+- Code is exactly 6 digits, expires in 10 min, max 5 attempts.
+- After verification, `users.isVerified === true`, `users.eduDomain` is set, the `Verified @{domain}` badge appears on every surface listed above.
+- Non-`.edu` emails are rejected at `/verification/request` with `400 { error: "edu_required" }`.
+
+---
+
+## 4. Phase 2 — Onboarding completion + real photo upload
+
+### Goal
+
+Expand onboarding from 5 to **6 in-screen steps** (with EDU verification as a separate prior screen, making the full beta flow 8 steps including auth). Collect every lifestyle field matching uses. Replace the preset `photoIndex` with a real photo upload to Replit Object Storage.
+
+### 4.1 Schema changes
+
+Edit `lib/db/src/schema/users.ts`:
+
+- Add `photoUrl: text("photo_url").notNull().default("")` — uploaded photo URL.
+- Add `profileCompletion: integer("profile_completion").notNull().default(0)` — 0–100 cached score (server-computed; client read-only).
+
+Update `insertUserSchema` and `UserProfileSchema` in `lib/api-zod/src/schemas.ts` to include `photoUrl: z.string()` and `profileCompletion: z.number().int()`.
+
+### 4.2 Photo upload
+
+`POST /api/profile/photo` — multipart/form-data with field `photo` (jpeg/png, ≤5 MB):
+
+- `multer` (`pnpm --filter @workspace/api-server add multer @types/multer`) with `memoryStorage()`.
+- `sharp` to resize max 1024×1024, strip EXIF, JPEG quality 85.
+- Upload via `@replit/object-storage`. Bucket from `REPLIT_OBJECT_STORAGE_BUCKET`. Key: `users/${userId}/${randomUUID()}.jpg`.
+- Update `users.photoUrl`.
+- Recompute and store `profileCompletion`.
+- Response: `{ photoUrl: string }`.
+
+On mobile, in `onboarding.tsx` and `edit-profile.tsx`, replace the preset-photo grid with:
+
+- `expo-image-picker` (already a dep). `launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1,1], quality: 0.85 })`.
+- Circular preview at ~120px. POST the file via `FormData`; store the returned URL on the user record.
+- Fallback: if the user has no `photoUrl`, render `getProfileImage(photoIndex)` everywhere — keep `photoIndex` as a working fallback path.
+
+### 4.3 Onboarding flow — 6 in-screen steps
+
+Update `artifacts/mobile/app/onboarding.tsx`. Set `TOTAL_STEPS = 6`. **Ordering follows the prototype's beta flow** (photo earlier, optional bubbles last):
+
+| Step | Title | Copy/Content |
+|---|---|---|
+| 1 | **"Let's get to know you"** | name, age, gender, `sameGenderOnly` toggle |
+| 2 | **"Your photo"** | Real photo upload (per §4.2). Required. Subtitle: *"One photo helps roommates put a face to your profile."* |
+| 3 | **"Your school"** | University (required). Occupation (optional). Note: if not yet verified, this screen surfaces a banner *"Verify your school email after onboarding to unlock matching."* — non-blocking. |
+| 4 | **"Budget & timeline"** | budgetMin/Max slider, moveInDate (month picker — store as `YYYY-MM` going forward). |
+| 5 | **"Where you want to live"** | Multi-select neighborhood chips (existing list). Required: ≥1. |
+| 6 | **"About you (optional)"** — **show subtitle: "More info = better matches, but optional fields stay lightweight."** | Lifestyle "bubbles" (chip groups) for: sleep schedule, quiet vs social (relabel `noise` UX), cleanliness 1–5, smoking yes/no, drinking never/socially/regularly, pets yes/no, guests rarely/sometimes/often, communication style. Optional cultural/personal bubbles: religion (text or "Skip"), language (multi-select with default English). Free-form tags (existing). Bio textarea with a **"Generate bio for me"** button (stubbed until Phase 6 — disabled with a "Coming after onboarding" tooltip for now). |
+
+Replace **every** hardcoded value in `handleFinish()`. No more `drinking: 'socially'`, `guests: 'sometimes'`, `language: 'English'`, `religion: ''` defaults — those become user-chosen state.
+
+### 4.4 Profile completion calculation
+
+Create `artifacts/api-server/src/utils/profileCompletion.ts`:
+
+```ts
+import type { User } from "@workspace/db";
+const WEIGHTS = {
+  basics: 15,        // name, age, gender all set
+  university: 10,
+  budget: 10,        // both min/max set and min < max
+  moveInDate: 5,
+  neighborhoods: 10, // ≥1
+  lifestyleCore: 15, // sleep, noise, cleanliness all set
+  lifestyleExtra: 10,// smoking, drinking, pets, guests all set
+  bio: 10,           // length ≥ 60
+  photo: 10,         // photoUrl non-empty
+  verified: 5,       // isVerified true
+};
+export function computeProfileCompletion(u: User): number { /* sum weights actually met */ }
+```
+
+Recompute on every `PUT /profile/me`, `/profile/photo`, and `/verification/confirm` — set `users.profileCompletion`.
+
+### 4.5 Acceptance criteria
+
+- Onboarding has exactly 6 in-screen steps; progress bar reflects `step+1 / 6`.
+- Photo step is required (no Continue until a photo is picked).
+- A new user completing onboarding has `religion`, `language`, `drinking`, `guests` set to user-chosen values, not hardcoded.
+- `users.photoUrl` is a real Object Storage URL; the image renders on Match cards via `<Image source={{ uri: photoUrl }} />`.
+- `profileCompletion` is 100 only when every weighted field is set and bio length ≥ 60.
+
+---
+
+## 5. Phase 3 — Filter & matching parity
+
+### Goal
+
+Every filter visible in `filters.tsx` is actually applied server-side. Matching uses every lifestyle field collected in Phase 2. The saved-filter chip row from the prototype renders at the top of the Match screen when filters are open.
+
+### 5.1 Server-side filter pipeline
+
+Rewrite the filter section of `GET /profiles` in `artifacts/api-server/src/routes/profiles.ts` to accept and apply:
+
+| Query param | Behavior |
+|---|---|
+| `budgetMin` / `budgetMax` | Existing (overlap check) |
+| `noiseLevel` | Existing |
+| `smokingOk` | Existing |
+| `sameGenderOnly` | Existing |
+| `shortlistedOnly` | Existing |
+| **`moveInDateFrom` / `moveInDateTo`** | New. Compare as ISO month strings `YYYY-MM`. Migrate the existing free-text `moveInDate` lazily. |
+| **`neighborhoods`** | New. CSV list. Drizzle SQL: `sql\`${usersTable.neighborhoods} ?| ARRAY[...]\``. |
+| **`cleanliness`** | New. Integer 1–5; `lifestyle->>'cleanliness'`. |
+| **`drinking`** | New. Enum; `lifestyle->>'drinking'`. |
+| **`guests`** | New. Enum; `lifestyle->>'guests'`. |
+| **`pets`** | New. Boolean; `lifestyle->>'pets'`. |
+
+Update `FilterSettingsSchema` in `lib/api-zod/src/schemas.ts` to include every new field as optional. Add a server-side `parseFilters(req.query)` helper that returns a typed object.
+
+Update `AppContext.tsx` `refreshProfiles` to send every set filter to the server. Stop client-side filtering.
+
+### 5.2 Filters UI
+
+In `artifacts/mobile/app/filters.tsx`:
+
+- **Wire Neighborhoods** through to the API (currently saved only to AsyncStorage).
+- Add a **Move-in date** section with 4 presets ("Within 1 month", "1–3 months", "3–6 months", "Flexible") → calculate `moveInDateFrom`/`To` from `now()`.
+- Add a **Cleanliness** chip group (1–5 with labels "Very relaxed" → "Very tidy"; plus an "Any" chip).
+- Add a **Drinking** chip group (Any / Never / Socially / Regularly).
+- Add a **Guests** chip group (Any / Rarely / Sometimes / Often).
+- Add a **Pets** toggle row (Any / Pet-friendly / No pets).
+
+`FilterSettings` in `context/types.ts` gains those fields. Persist to AsyncStorage as before.
+
+### 5.3 Saved-filter chips on Match screen (prototype §1.4 / §1.9)
+
+In `artifacts/mobile/app/(tabs)/index.tsx` (the Match screen), render the prototype's filter dropdown:
+
+- When the filter icon in the header is tapped, animate down a 24px-radius white card titled **"Match Filters"** with an emerald **"Saved"** pill on the right.
+- Below: render the user's currently-applied filters as flat sky-50 chips (no remove button — taps the chip to open the filter screen for editing). Examples from the prototype: `"$1,100–$1,500", "Aug move-in", "Mission Hill", "Same-gender only", "Clean", "Quiet", "No smoking", "Arabic", "Religion optional"`.
+
+Build a `summarizeFilters(filters)` helper that turns the `FilterSettings` object into an array of short label strings for display.
+
+### 5.4 Matching uses new fields
+
+In `artifacts/api-server/src/utils/matchScore.ts`:
+
+- **Language bonus**: +3 max bonus if both users share at least one language; 0 otherwise. Reported as a separate `languageBonus` outside the 0–100 score (keeps existing weight table intact).
+- **Religion**: do **not** factor numerically (avoid optimizing for religious sorting). Surface in `matchBreakdown` as an informational entry with `compatible: a.religion === b.religion || !a.religion || !b.religion`. Label: "Religion (optional)".
+
+Document the weight table at the top of `matchScore.ts` after your change.
+
+### 5.5 Acceptance criteria
+
+- Selecting "Williamsburg" in filters and pressing Apply causes `GET /profiles?neighborhoods=Williamsburg` to fire and the returned set is restricted accordingly.
+- The full filter set round-trips through AsyncStorage and reappears on next app launch.
+- The Match screen's filter dropdown renders the saved filters as chips when toggled open.
+- Two profiles with identical lifestyle but different `cleanliness` (1 vs 5) score worse than two with identical cleanliness — verified by a unit test in `artifacts/api-server/src/utils/matchScore.test.ts`.
+
+---
+
+## 6. Phase 4 — Open Rooms (rename + create + sublet review flow)
+
+### Goal
+
+Replace the "Housing" tab with the prototype's "Open Rooms" experience: tab rename, segmented `All open rooms` / `Sublets only` toggle, **Create** flow, sublet support with an **optional roommate review** mode, and full join-request approval pipeline.
+
+### 6.1 Schema changes
+
+Edit `lib/db/src/schema/housing_listings.ts`:
+
+- Change `type` to `text("type").$type<"permanent_room" | "sublet" | "forming_group">().notNull()`. Rename `open_room` → `permanent_room` (the prototype labels it "Permanent Room"). **Write a migration that maps existing `open_room` rows → `permanent_room`.**
+- Add `subletStart: text("sublet_start")` and `subletEnd: text("sublet_end")` — nullable, ISO `YYYY-MM-DD`. Only meaningful when `type = "sublet"`.
+- Add `status: text("status").$type<"active" | "filled" | "withdrawn">().notNull().default("active")`.
+- Add `requireRoommateReview: boolean("require_roommate_review").notNull().default(true)` — when `true`, join requests need approval; when `false` (only valid for `sublet`), a request becomes an instant match. **This is the prototype's "Sublet by Noor · Optional roommate review" toggle.**
+
+The existing `forming_group` type stays in the DB. Hide it from `/api/housing` by default (the Open Rooms tab only shows `permanent_room` and `sublet`). It can still be fetched via `?type=forming_group` for legacy clients.
+
+Create `lib/db/src/schema/housing_join_requests.ts`:
+
+```ts
+export const housingJoinRequestsTable = pgTable(
+  "housing_join_requests",
+  {
+    id: text("id").primaryKey(),
+    listingId: text("listing_id").notNull()
+      .references(() => housingListingsTable.id, { onDelete: "cascade" }),
+    requesterId: text("requester_id").notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    message: text("message").notNull().default(""),
+    status: text("status").$type<"pending" | "approved" | "denied" | "withdrawn">()
+      .notNull().default("pending"),
+    decidedAt: timestamp("decided_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("housing_join_unique_pending").on(t.listingId, t.requesterId),
+    index("housing_join_listing_idx").on(t.listingId),
+    index("housing_join_requester_idx").on(t.requesterId),
+  ],
+);
+```
+
+Create `lib/db/src/schema/housing_members.ts` for the "Current roommate members" display:
+
+```ts
+export const housingMembersTable = pgTable(
+  "housing_members",
+  {
+    listingId: text("listing_id").notNull()
+      .references(() => housingListingsTable.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    role: text("role").$type<"owner" | "member">().notNull(),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.listingId, t.userId] })],
+);
+```
+
+Re-export all from `schema/index.ts`. When creating a listing, auto-insert a `housing_members` row with `role: "owner"` for `postedById`.
+
+### 6.2 New routes — `artifacts/api-server/src/routes/housing-actions.ts`
+
+All require `requireAuth` + `requireVerified`.
+
+| Method + path | Behavior |
+|---|---|
+| `POST /api/housing` | Create listing. Body matches `CreateHousingListingSchema`. Set `postedById = req.userId`, `status = "active"`. Insert `housing_members` owner row. If `type = "sublet"`, `requireRoommateReview` may be set false; for `permanent_room`, it is forced `true`. Returns full listing. |
+| `PATCH /api/housing/:id` | Owner-only edit. 403 if `req.userId !== postedById`. |
+| `DELETE /api/housing/:id` | Owner-only soft delete. Sets `status = "withdrawn"`. |
+| `POST /api/housing/:id/join-requests` | Body `{ message?: string }`. Disallow self-request, disallow if already a member. **If listing's `requireRoommateReview === false` (only sublets), short-circuit: create an "approved" join_request row, insert housing_members row, create a `match` between requester and owner, push notify owner.** Otherwise create `pending` row and push notify owner. |
+| `GET /api/housing/:id/join-requests` | Owner-only. All requests with the requester's full profile and computed match score relative to the owner. |
+| `POST /api/housing/join-requests/:requestId/approve` | Owner-only. Sets `approved`. Inserts `housing_members`. Increments `currentRoommates`; if `currentRoommates >= maxRoommates`, status → `"filled"`. **Creates a `match` row between owner and requester** so they can chat. Push to requester. |
+| `POST /api/housing/join-requests/:requestId/deny` | Owner-only. Sets `denied`. Push to requester. |
+| `DELETE /api/housing/join-requests/:requestId` | Requester-only. Withdraws if still pending. |
+| `GET /api/housing/mine` | Listings posted by `req.userId` (any status). |
+| `GET /api/housing/my-requests` | Join requests made by `req.userId` with current status. |
+
+Update `GET /api/housing` to:
+
+- Filter `status = "active"` only by default.
+- Default to excluding `forming_group`; accept `?type=permanent_room|sublet|forming_group`.
+- Accept `?onlySublets=true` (alias for `?type=sublet`) to support the prototype's segmented toggle.
+- Sort: active sublets with `subletStart` within 90 days bubble first, then by recency.
+- Include `currentMembers: RoommateProfileSchema[]` by joining `housing_members`. Update `HousingListingSchema` accordingly.
+
+Mount the new router in `routes/index.ts`.
+
+### 6.3 Zod additions in `lib/api-zod/src/schemas.ts`
+
+```ts
+export const CreateHousingListingSchema = z.object({
+  type: z.enum(["permanent_room", "sublet"]), // forming_group not creatable in MVP
+  title: z.string().min(3).max(120),
+  address: z.string().min(3),
+  neighborhood: z.string().min(2),
+  rent: z.number().int().positive(),
+  moveInDate: z.string(),
+  description: z.string().max(2000).default(""),
+  maxRoommates: z.number().int().min(1).max(10),
+  rules: z.array(z.string()).default([]),
+  tags: z.array(z.string()).default([]),
+  amenities: z.array(z.string()).default([]),
+  sameGenderOnly: z.boolean().default(false),
+  subletStart: z.string().optional(),
+  subletEnd: z.string().optional(),
+  requireRoommateReview: z.boolean().default(true),
+  photoIndex: z.number().int().min(0).max(4).default(0),
+});
+
+export const JoinRequestSchema = z.object({
+  id: z.string(),
+  listingId: z.string(),
+  requester: RoommateProfileSchema,
+  message: z.string(),
+  status: z.enum(["pending", "approved", "denied", "withdrawn"]),
+  createdAt: z.string(),
+  decidedAt: z.string().nullable(),
+});
+export const JoinRequestsResponseSchema = z.object({ requests: z.array(JoinRequestSchema) });
+export const CreateJoinRequestSchema = z.object({ message: z.string().max(500).optional() });
+```
+
+Add `currentMembers`, `status`, `subletStart`, `subletEnd`, `requireRoommateReview` to `HousingListingSchema`; mark new ones optional with sensible defaults so older clients keep working. Update the `type` enum to include `"permanent_room"` (keep `"open_room"` accepted as an alias for one release cycle).
+
+### 6.4 Mobile — Open Rooms tab
+
+Rename tab label to **"Open Rooms"** in `artifacts/mobile/app/(tabs)/_layout.tsx`. Update the screen `(tabs)/housing.tsx` to match the prototype:
+
+- Header right action: a primary sky-600 **"Create"** button.
+- Sticky info card: title "Open Housing", subtitle "Simplified MVP housing mode for open rooms and sublets."
+- Segmented toggle row: **"All open rooms"** | **"Sublets only"**. Active pill is sky-600/white, inactive is slate-100/slate-700.
+- Listing cards per §1.9: type badge color depends on `type` (emerald for `permanent_room`, amber for `sublet`), member avatars stacked, tag chips below.
+- Right-side **"Request"** sky-600 pill per card.
+
+Create `artifacts/mobile/app/housing-create.tsx` — form covering every `CreateHousingListingSchema` field. Match `filters.tsx`'s chip/section UI. Segmented control at top for listing type (Permanent Room / Sublet). When Sublet selected:
+
+- Show start/end date pickers.
+- Show a toggle: **"Require roommate review"** with subcopy *"When off, any verified student can join instantly. When on, you approve each request."* Defaults to on. **Only sublets can turn this off.**
+
+Update `housing-detail/[id].tsx`:
+
+- Replace the alert stub `handleRequest` with a real call to `POST /api/housing/:id/join-requests`. Show a textarea for an optional message. On success, the button changes to "Request sent" (disabled).
+- Render listing badge with prototype colors (emerald = Permanent Room, amber = Sublet).
+- For sublets where `requireRoommateReview === false`, change the CTA to **"Join now"** (sky-600) and the success state to "Joined" with a link to the new match thread.
+- Add "Current roommate members" section — `currentMembers` avatars (stacked) → tap routes to `/user/:id`.
+- If `req.userId === postedBy.id`, hide the request button and show **"Manage requests"** linking to `housing-requests/[listingId].tsx`.
+
+Create `artifacts/mobile/app/housing-requests/[listingId].tsx` — owner's request inbox with per-request approve/deny buttons and the requester's match score and profile preview.
+
+Add "My listings" + "My requests" entry points (in settings or as a header right action on the profile screen).
+
+### 6.5 Acceptance criteria
+
+- Tab label reads **"Open Rooms"** in the bottom tab bar.
+- A user can create a Permanent Room or Sublet listing that round-trips through the DB. Sublets accept start/end dates.
+- For a sublet with `requireRoommateReview = false`, pressing Request → immediately creates a match + housing_members row, no owner approval needed.
+- For all other listings, pressing Request creates a `pending` join_requests row and pushes a notification to the owner.
+- Owner approval → push to requester, match created, `currentRoommates` increments, `currentMembers` list updates.
+- Unverified user → 403 `verification_required` on any create or join action.
+
+---
+
+## 7. Phase 5 — Block / Report / Unmatch (with safety card on Messages)
+
+### Goal
+
+Three menu items in chat (currently no-op) work end-to-end. The blocked user disappears from every surface. The prototype's **Safety actions card** at the bottom of the Messages list also surfaces these three actions for the currently selected conversation.
+
+### 7.1 Schema
+
+Create `lib/db/src/schema/user_blocks.ts`:
+
+```ts
+export const userBlocksTable = pgTable(
+  "user_blocks",
+  {
+    blockerId: text("blocker_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+    blockedId: text("blocked_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+    reason: text("reason"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.blockerId, t.blockedId] })],
+);
+```
+
+Create `lib/db/src/schema/user_reports.ts`:
+
+```ts
+export const userReportsTable = pgTable("user_reports", {
+  id: text("id").primaryKey(),
+  reporterId: text("reporter_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  reportedId: text("reported_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  matchId: text("match_id"),
+  category: text("category").$type<"harassment" | "spam" | "fake_profile" | "inappropriate" | "safety" | "other">().notNull(),
+  description: text("description").notNull().default(""),
+  status: text("status").$type<"open" | "reviewing" | "resolved" | "dismissed">().notNull().default("open"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+```
+
+Re-export both. Run migration.
+
+### 7.2 Routes — `artifacts/api-server/src/routes/safety.ts`
+
+| Method + path | Behavior |
+|---|---|
+| `POST /api/blocks` | Body `{ blockedId, reason? }`. Insert (idempotent — `ON CONFLICT DO NOTHING`). Side effects below. |
+| `DELETE /api/blocks/:blockedId` | Unblock. |
+| `GET /api/blocks` | List of blocked users (ID + name + createdAt for UI). |
+| `POST /api/reports` | Body matches `CreateReportSchema`. Status `open`. |
+| `DELETE /api/matches/:matchId` | Unmatch. Verifies caller is in the match; deletes messages, then the match. Returns 204. |
+
+#### Side effects of blocking (same transaction)
+
+- Delete any existing matches between the two users (and their messages).
+- Delete open `housing_join_requests` between them (either direction).
+- Insert reciprocal `swipe_actions` (`skip`) so they never reappear in Match.
+
+`requireAuth` is enough on these (verified status not required — a user must be able to report/block at any time).
+
+### 7.3 Block filtering helper
+
+Create `artifacts/api-server/src/utils/blockFilter.ts`:
+
+```ts
+import { db, userBlocksTable } from "@workspace/db";
+import { eq, or } from "drizzle-orm";
+export async function getBlockedUserIds(userId: string): Promise<Set<string>> {
+  const rows = await db.select().from(userBlocksTable)
+    .where(or(eq(userBlocksTable.blockerId, userId), eq(userBlocksTable.blockedId, userId)));
+  const ids = new Set<string>();
+  for (const r of rows) ids.add(r.blockerId === userId ? r.blockedId : r.blockerId);
+  return ids;
+}
+```
+
+Apply in:
+
+- `GET /profiles` — exclude blocked IDs.
+- `GET /profiles/:id` — 404 if either side is blocked (do not leak existence).
+- `GET /matches` — filter out matches with blocked counterparties.
+- `GET /housing` — exclude listings posted by blocked users.
+- `POST /messages/:matchId` — 403 if other party is blocked.
+
+### 7.4 Zod additions
+
+```ts
+export const CreateBlockSchema = z.object({
+  blockedId: z.string(),
+  reason: z.string().max(500).optional(),
+});
+export const CreateReportSchema = z.object({
+  reportedId: z.string(),
+  matchId: z.string().optional(),
+  category: z.enum(["harassment", "spam", "fake_profile", "inappropriate", "safety", "other"]),
+  description: z.string().max(2000).default(""),
+});
+export const BlockedUserSchema = z.object({ id: z.string(), name: z.string(), createdAt: z.string() });
+export const BlockedUsersResponseSchema = z.object({ blocked: z.array(BlockedUserSchema) });
+```
+
+### 7.5 Mobile — chat menu actions
+
+In `artifacts/mobile/app/chat/[id].tsx`, replace the three `onPress: () => {}` handlers in the headerRight Alert with real flows:
+
+- **Report**: open modal route `artifacts/mobile/app/report/[userId].tsx` — category picker, description textarea, submit. POST to `/api/reports`. On success, confirmation + option to also block.
+- **Block**: confirm dialog → `POST /api/blocks` → refresh matches → `router.replace('/(tabs)/messages')`.
+- **Unmatch**: confirm dialog → `DELETE /api/matches/:matchId` → refresh matches → `router.replace('/(tabs)/messages')`.
+
+Add wrappers to `AppContext.tsx`: `blockUser`, `unblockUser`, `reportUser`, `unmatch`.
+
+### 7.6 Mobile — Safety actions card on the Messages list (prototype §1.10)
+
+In `artifacts/mobile/app/(tabs)/messages.tsx`:
+
+- Sticky info card at top: title **"Direct messages only for MVP"**, subtitle *"Group chats and AI conversation starters are deferred after beta."*
+- After the conversation list, render a **Safety actions** card (24px radius, sky-100 border, white background):
+  - Title: "Safety actions"
+  - Three pill outline buttons in a row: `Unmatch` · `Block` · `Report` (Report's text in red `colors.danger`).
+  - Caption: *"Unmatched profiles will not reappear in the feed."*
+- The three buttons act on the **most recently opened conversation** (track with a `lastSelectedMatchId` state in `AppContext`). If the user hasn't opened a chat yet, the card is rendered disabled with copy *"Open a conversation first."*
+- All three buttons call the same handlers as the chat menu (Phase 7.5).
+
+### 7.7 Blocked users management
+
+Create `artifacts/mobile/app/blocked-users.tsx` — list `GET /api/blocks` with an "Unblock" button per row. Link from Settings.
+
+### 7.8 Acceptance criteria
+
+- Blocking user B: B disappears from Match, the match (if any) and its messages are gone, B's listings vanish from Open Rooms.
+- The Messages safety-actions card buttons work on the most-recently-opened conversation and show the same confirmation flow as the chat-screen menu.
+- Reporting creates a `user_reports` row with `status = "open"`.
+- Unmatching deletes the match and chat thread; both users navigate back to Messages cleanly.
+
+---
+
+## 8. Phase 6 — AI-assisted bio (three-button control)
+
+### Goal
+
+The "Generate bio for me" button (stubbed in Phase 2) produces a 2–4 sentence bio derived from onboarding answers. The Profile screen surfaces **three buttons** matching the prototype: `Edit bio` · `Write my own` · `Regenerate`.
+
+### 8.1 Route
+
+Create `artifacts/api-server/src/routes/ai.ts`:
+
+`POST /api/ai/bio` — auth required. Reads the user's own profile and calls Anthropic Claude Sonnet (`@anthropic-ai/sdk`, model `claude-sonnet-4-20250514`, `ANTHROPIC_API_KEY` from env) with:
+
+```
+You are writing a short roommate-profile bio in first person.
+Use only these facts. 2-4 sentences. Friendly, specific, no clichés
+("looking for a chill roommate"), no emoji, no hashtags. Max 280 chars.
+
+FACTS:
+- Age: 24
+- University: Northeastern
+- Occupation: PhD student in robotics
+- Neighborhood preferences: Williamsburg, Park Slope
+- Cleanliness: 4/5
+- Sleep: night_owl
+- Noise: quiet
+- Smoking: no
+- Tags: home cook, plant parent, remote worker
+
+Return JSON ONLY: {"bio": "..."}
+```
+
+- Parse JSON; fall back to raw text. Truncate to 280 chars.
+- Rate limit: 5 generations per user per hour via an in-memory `Map<userId, timestamps[]>` (TODO comment to swap for Redis post-MVP).
+- Response: `{ bio: string }`.
+
+Add `BioGenerationResponseSchema = z.object({ bio: z.string() })`.
+
+### 8.2 Mobile
+
+In `artifacts/mobile/app/(tabs)/profile.tsx` and `edit-profile.tsx`, replace the bio section with the prototype's three-button layout:
+
+- A read-only bio preview if one exists; otherwise a subtle "No bio yet — let's generate one."
+- Three pill outline buttons in a row:
+  - **Edit bio**: opens a textarea modal pre-filled with current bio. Save → `PUT /profile/me`.
+  - **Write my own**: opens the same textarea modal but with no pre-fill (or a one-tap clear). Save → `PUT /profile/me`.
+  - **Regenerate**: calls `/api/ai/bio`, shows a spinner, replaces the preview with the result and shows a small "Use this bio" / "Try again" pair below until the user commits.
+
+Caption beneath: *"Generated from onboarding answers, editable by the user."*
+
+Add `aiGenerateBio()` to `AppContext.tsx`. In Phase 2's onboarding step 6, wire the **"Generate bio for me"** button to call the same method now that the route exists.
+
+### 8.3 Acceptance criteria
+
+- A user with all Phase 2 fields filled clicks Regenerate and sees a 2–4 sentence first-person bio within ~3 seconds.
+- Pressing Regenerate again produces a different bio.
+- Rate limit returns 429 after 5 calls in an hour.
+- The user's manually edited bio is what gets saved, never the raw AI output unless they explicitly commit it.
+
+---
+
+## 9. Phase 7 — Profile completion + verified surfacing + two-tier preferences
+
+### Goal
+
+Surface `profileCompletion` (cached in Phase 2) and the verified domain consistently. Render every profile's preferences in the two-tier layout from the prototype.
+
+### 9.1 Mobile — Profile tab
+
+In `artifacts/mobile/app/(tabs)/profile.tsx`:
+
+- Hero gradient strip (sky-300 → sky-100 → white), 24px radius card overlay.
+- **Profile completion badge** in the top-right of the hero card: rounded-full emerald-100/emerald-700, format `{n}% complete`. Tap → routes to `/edit-profile` with deep-link state highlighting the next-most-impactful missing field (compute on client by checking which weights from `computeProfileCompletion` are 0).
+- Two-up sky-50 fact tiles: `Student verification` showing `Verified @{eduDomain}` (or `"Pending verification"` link to `/verify-edu` if not yet verified) and `Beta access` showing `Student only`.
+- Bio section with the three-button control from Phase 6.
+- **Required profile info** section: emerald-50 chips listing the always-required fields the user has filled in (Name, Age, Gender, 1 photo, Budget, Move-in date, Preferred neighborhood).
+- **Optional but encouraged** section: slate-100 chips for optional fields they have filled in (Quiet/social, Cleanliness, Smoking/drinking, Guests, Religion, Language, University, Short bio). Caption: *"More info = better matches, but optional fields stay lightweight."*
+
+### 9.2 Other surfaces
+
+- `components/ProfileCard.tsx`: small verified shield in the top-right when `isVerified`.
+- `user/[id].tsx` and `(tabs)/profile.tsx`: render the **two-tier preference display** per §1.5 — Core preferences (sky-50 chips) and Optional cultural/personal preferences (slate-100 chips, lower, with the caption *"Shown lower on the profile and controlled by the user."*).
+- Match screen hero card: same two-tier layout.
+
+### 9.3 Acceptance criteria
+
+- Editing bio from 0 → 60 chars increases the meter by 10%.
+- Verifying `.edu` increases the meter by 5%.
+- Verified shield appears on Match cards only for verified profiles.
+- The two-tier display correctly separates core vs cultural/personal preferences on every profile surface.
+
+---
+
+## 10. Phase 8 — Settings, privacy, account lifecycle, feedback
+
+### Goal
+
+Replace every "Coming soon" alert in settings with a working screen. Add the account lifecycle controls the App Store requires. **Add the Feedback entry from the prototype.**
+
+### 10.1 New routes — `artifacts/api-server/src/routes/account.ts`
+
+- `POST /api/account/deactivate` — sets a new `users.deactivatedAt` column (add it in `schema/users.ts`). While `deactivatedAt IS NOT NULL`, the user is hidden from `/profiles`, `/housing`, etc. Existing matches remain visible to counterparties but show "(deactivated)" beside the name. A subsequent login auto-reactivates.
+- `POST /api/account/reactivate` — clears `deactivatedAt`.
+- `DELETE /api/account` — hard delete. Body `{ confirmation: "DELETE" }`. Deletes the user row (cascade handles the rest). Revoke refresh tokens. 204.
+
+Add Zod: `DeleteAccountSchema = z.object({ confirmation: z.literal("DELETE") })`.
+
+### 10.2 Privacy
+
+Add a `users.privacy` JSONB column with defaults:
+
+```ts
+privacy: jsonb("privacy").$type<{
+  showAge: boolean;
+  showUniversity: boolean;
+  showOccupation: boolean;
+  hideFromSearch: boolean;
+}>().notNull().default(sql`'{"showAge":true,"showUniversity":true,"showOccupation":true,"hideFromSearch":false}'::jsonb`),
+```
+
+- `/profiles` respects `privacy.hideFromSearch` (excluded entirely).
+- `toProfileResponse` blanks hidden fields when serving someone else's profile.
+- `users.privacy` is exposed on `GET /profile/me` and writable via `PUT /profile/me`.
+
+### 10.3 Feedback
+
+Create `lib/db/src/schema/feedback.ts`:
+
+```ts
+export const feedbackTable = pgTable("feedback", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  category: text("category").$type<"bug" | "feature" | "general" | "other">().notNull(),
+  body: text("body").notNull(),
+  appVersion: text("app_version"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+```
+
+`POST /api/feedback` — body `{ category, body, appVersion? }`. Auth required. Inserts a row; logs at info level so beta feedback is discoverable in logs without needing a dashboard.
+
+Add `CreateFeedbackSchema` to api-zod.
+
+### 10.4 Mobile screens
+
+Wire every settings row in `artifacts/mobile/app/settings.tsx`:
+
+- **Notifications** — already partial, keep it.
+- **Privacy** → new screen `artifacts/mobile/app/privacy.tsx` with toggles for each flag.
+- **Matching preferences** → router push to existing `/filters`.
+- **Blocked users** → `/blocked-users` (Phase 5).
+- **Account management** → a small screen showing the EDU email, university, member-since date, with options to change EDU email (re-runs verification flow) and to log out.
+- **Delete / deactivate account** → confirmation flows:
+  - Deactivate: alert → `POST /api/account/deactivate` → logout.
+  - Delete: modal route `artifacts/mobile/app/delete-account.tsx` requiring the user to type literal `DELETE` to enable the button → `DELETE /api/account` → clear tokens → `/login`.
+- **Help / support** → static FAQ screen `artifacts/mobile/app/help.tsx` (FAQ data in `artifacts/mobile/constants/faq.ts`) + mailto link.
+- **Feedback** → new screen `artifacts/mobile/app/feedback.tsx` with category picker (Bug / Feature / General / Other), textarea, submit → `POST /api/feedback`. Show a confirmation toast on success.
+
+### 10.5 Acceptance criteria
+
+- Deactivating hides the user from Match within one refresh; logging back in reactivates.
+- Deleting requires typing `DELETE`; nothing else enables the button.
+- After delete, the user's swipes, matches, messages, listings, blocks, reports, and feedback rows are gone (verify cascade in a manual SQL check).
+- Submitting feedback creates a `feedback` row and shows a confirmation.
+- Every Settings entry either does something real or has been removed.
+
+---
+
+## 11. Cross-cutting tasks
+
+### 11.1 Tests
+
+For each phase, add at least one test:
+
+- `artifacts/api-server/src/utils/matchScore.test.ts` — cleanliness impact (Phase 3).
+- `artifacts/api-server/src/routes/__tests__/verification.test.ts` — code expiry + attempt limit (Phase 1).
+- `artifacts/api-server/src/routes/__tests__/housing-actions.test.ts` — approval flow creates a match; **`requireRoommateReview = false` short-circuits to instant match** (Phase 4).
+- `artifacts/api-server/src/routes/__tests__/safety.test.ts` — blocking removes match + filters Match (Phase 5).
+
+Use `node:test` (built in) and supertest (`pnpm --filter @workspace/api-server add -D supertest @types/supertest`).
+
+Wire `pnpm test` at the root to run `pnpm --filter @workspace/api-server test`.
+
+### 11.2 Seed updates
+
+Update `scripts/src/seed.ts`:
+
+- All 10 seeded users have `isVerified: true`, a fake `eduEmail` like `<id>@northeastern.edu`, `eduDomain` set, `profileCompletion: 100`.
+- Add 3 sublet listings alongside the 5 existing rooms; mark one with `requireRoommateReview: false`.
+- Add `housing_members` rows for every existing listing's owner.
+- Rename any existing `open_room` listings to `permanent_room`.
+
+### 11.3 Docs
+
+After build, update:
+
+- `README.md` — feature summary + env vars (`ANTHROPIC_API_KEY`, `EMAIL_PROVIDER`, `REPLIT_OBJECT_STORAGE_BUCKET`, `EDU_DOMAIN_ALLOWLIST`).
+- `replit.md` — architecture notes for verification, blocks/reports, AI bio, photo storage, profile completion, the `permanent_room` rename, the optional roommate review flag, and the "Open Rooms" tab.
+
+Mark every item in `MVP_NOT_IMPLEMENTED.md` as `✅ Implemented` once its phase ships.
+
+### 11.4 Env vars
+
+| Secret | Required? | Purpose |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | Yes (Phase 6) | AI bio |
+| `EMAIL_PROVIDER` | Optional, default `console` | `console` / `resend` / `sendgrid` |
+| `RESEND_API_KEY` | If `EMAIL_PROVIDER=resend` | |
+| `SENDGRID_API_KEY` | If `EMAIL_PROVIDER=sendgrid` | |
+| `EDU_DOMAIN_ALLOWLIST` | Optional | CSV of extra accepted domains |
+| `REPLIT_OBJECT_STORAGE_BUCKET` | Yes (Phase 2) | Photo bucket |
+
+Add a startup check in `artifacts/api-server/src/index.ts` that warns (not errors) on missing optional secrets.
+
+### 11.5 Per-phase verification
+
+After every phase:
+
+```bash
+pnpm run typecheck
+pnpm --filter @workspace/api-server test
+pnpm --filter @workspace/db run generate   # ensure no schema drift
+```
+
+Fix every type error before moving on. Do not leave `any` in new code.
+
+---
+
+## 12. Tone & quality expectations
+
+- Style-match the existing code. Route handlers use arrow functions; routers are exported by default with `IRouter` typing.
+- Reuse `Badge`, `ProfileCard`, `HousingCard`, `ConversationItem`, the chip/section pattern in `filters.tsx`, and `useColors()` everywhere. Do not introduce a competing component library.
+- Match the **prototype's microcopy verbatim** for the strings called out in §1.12 — no paraphrasing of "Direct messages only for MVP", "Unmatched profiles will not reappear in the feed", "Generated from onboarding answers, editable by the user", "More info = better matches, but optional fields stay lightweight", "Beta access · Student only", "Verified @{domain}", "Why you match", "Current roommate members", "Simplified MVP housing mode for open rooms and sublets".
+- Error responses: always `{ error: "snake_case_code", details?: ... }`. Stick to existing codes (`verification_required`, `unauthorized`, `not_found`); create new codes sparingly.
+- Loading states: every new screen with a server call shows a spinner or skeleton, never a blank screen.
+- Pino logging: never log the verification code in production. Gate with `if (process.env.NODE_ENV !== "production")`.
+
+---
+
+## 13. What "done" looks like
+
+When all 8 phases are merged:
+
+1. `pnpm run typecheck` is clean across the workspace.
+2. `pnpm --filter @workspace/api-server test` is green.
+3. A fresh account can: sign up → verify `.edu` → onboard (6 in-screen steps with a real photo) → swipe → match → chat → use the Messages safety card to block/report/unmatch → post a sublet with `requireRoommateReview: false` → another user joins instantly → submit feedback → delete the account.
+4. The four bottom tabs read `Match · Messages · Open Rooms · Profile`.
+5. The Match hero card visually matches the prototype: sky gradient hero, match score + `Verified @{domain}` pills top-left, "Beta access · Student only" tile, fact-card row, AI bio section, "Why you match" emerald callout, Core + Optional cultural/personal preference chip groups.
+6. The Profile tab shows the emerald `{n}% complete` badge, the two sky-50 verification tiles, the three-button AI bio control, and the Required vs Optional chip groups.
+7. `MVP_NOT_IMPLEMENTED.md` reads `✅` for every row in sections 1–9.
+8. `README.md` lists the new env vars; `replit.md` documents the new tables and design language.
+
+If anything in this plan conflicts with the existing code, **fix the conflict in code** rather than skipping the spec — and flag the conflict in the PR description.
+
+Begin with **Phase 1**.

@@ -1,0 +1,475 @@
+{
+  "config": {
+    "configFile": "/home/runner/workspace/artifacts/mobile/playwright.config.ts",
+    "rootDir": "/home/runner/workspace/artifacts/mobile/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/runner/workspace/artifacts/mobile/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/runner/workspace/artifacts/mobile/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 18000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.60.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "profile.spec.ts",
+      "file": "profile.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Profile & settings flow",
+          "file": "profile.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [
+            {
+              "title": "profile tab shows own profile info",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 18000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7367,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:23:42.193Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8b79b4ee550a37632f1-9514fcd867effdb2857a",
+              "file": "profile.spec.ts",
+              "line": 9,
+              "column": 7
+            },
+            {
+              "title": "edit profile screen loads with bio field",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 18000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6123,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:23:51.676Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8b79b4ee550a37632f1-480e0237a9d6cf7c916c",
+              "file": "profile.spec.ts",
+              "line": 19,
+              "column": 7
+            },
+            {
+              "title": "edit profile: change bio and save",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 18000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7457,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:23:57.828Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8b79b4ee550a37632f1-46b02509df4633536b6f",
+              "file": "profile.spec.ts",
+              "line": 28,
+              "column": 7
+            },
+            {
+              "title": "settings screen loads from profile tab",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 18000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5815,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:24:05.324Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8b79b4ee550a37632f1-6b2c1eff69b19bffba79",
+              "file": "profile.spec.ts",
+              "line": 45,
+              "column": 7
+            },
+            {
+              "title": "settings: blocked-users screen loads",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 18000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5923,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:24:11.208Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8b79b4ee550a37632f1-586d17101aae87d926f9",
+              "file": "profile.spec.ts",
+              "line": 52,
+              "column": 7
+            },
+            {
+              "title": "settings: privacy screen loads",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 18000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5948,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:24:17.183Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8b79b4ee550a37632f1-e040694b8c7c5deb9487",
+              "file": "profile.spec.ts",
+              "line": 61,
+              "column": 7
+            },
+            {
+              "title": "settings: help screen loads with FAQ section",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 18000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5994,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:24:23.168Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8b79b4ee550a37632f1-246310bcd2c3da896933",
+              "file": "profile.spec.ts",
+              "line": 70,
+              "column": 7
+            },
+            {
+              "title": "settings: feedback screen loads with category options",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 18000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6074,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:24:29.221Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e8b79b4ee550a37632f1-a3b14e4d5060e9ba95d9",
+              "file": "profile.spec.ts",
+              "line": 79,
+              "column": 7
+            },
+            {
+              "title": "feedback form: select category, write message, submit, and see success",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 18000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 16607,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('Thank you!')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Thank you!')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('Thank you!')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Thank you!')\u001b[22m\n\n    at /home/runner/workspace/artifacts/mobile/e2e/profile.spec.ts:113:48",
+                        "location": {
+                          "file": "/home/runner/workspace/artifacts/mobile/e2e/profile.spec.ts",
+                          "column": 48,
+                          "line": 113
+                        },
+                        "snippet": "  111 |\n  112 |     // After successful submission the screen must show the \"Thank you!\" success state\n> 113 |     await expect(page.getByText('Thank you!')).toBeVisible({ timeout: 10000 });\n      |                                                ^\n  114 |     await expect(page.getByText(/helps us improve RoomieMatch/i)).toBeVisible({ timeout: 5000 });\n  115 |   });\n  116 | });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/workspace/artifacts/mobile/e2e/profile.spec.ts",
+                            "column": 48,
+                            "line": 113
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('Thank you!')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Thank you!')\u001b[22m\n\n\n  111 |\n  112 |     // After successful submission the screen must show the \"Thank you!\" success state\n> 113 |     await expect(page.getByText('Thank you!')).toBeVisible({ timeout: 10000 });\n      |                                                ^\n  114 |     await expect(page.getByText(/helps us improve RoomieMatch/i)).toBeVisible({ timeout: 5000 });\n  115 |   });\n  116 | });\n    at /home/runner/workspace/artifacts/mobile/e2e/profile.spec.ts:113:48"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:24:35.318Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/runner/workspace/artifacts/mobile/test-results/profile-Profile-settings-f-e8be0-sage-submit-and-see-success-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/workspace/artifacts/mobile/test-results/profile-Profile-settings-f-e8be0-sage-submit-and-see-success-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/workspace/artifacts/mobile/e2e/profile.spec.ts",
+                        "column": 48,
+                        "line": 113
+                      }
+                    },
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 18465,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('Thank you!')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Thank you!')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('Thank you!')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Thank you!')\u001b[22m\n\n    at /home/runner/workspace/artifacts/mobile/e2e/profile.spec.ts:113:48",
+                        "location": {
+                          "file": "/home/runner/workspace/artifacts/mobile/e2e/profile.spec.ts",
+                          "column": 48,
+                          "line": 113
+                        },
+                        "snippet": "  111 |\n  112 |     // After successful submission the screen must show the \"Thank you!\" success state\n> 113 |     await expect(page.getByText('Thank you!')).toBeVisible({ timeout: 10000 });\n      |                                                ^\n  114 |     await expect(page.getByText(/helps us improve RoomieMatch/i)).toBeVisible({ timeout: 5000 });\n  115 |   });\n  116 | });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/workspace/artifacts/mobile/e2e/profile.spec.ts",
+                            "column": 48,
+                            "line": 113
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('Thank you!')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Thank you!')\u001b[22m\n\n\n  111 |\n  112 |     // After successful submission the screen must show the \"Thank you!\" success state\n> 113 |     await expect(page.getByText('Thank you!')).toBeVisible({ timeout: 10000 });\n      |                                                ^\n  114 |     await expect(page.getByText(/helps us improve RoomieMatch/i)).toBeVisible({ timeout: 5000 });\n  115 |   });\n  116 | });\n    at /home/runner/workspace/artifacts/mobile/e2e/profile.spec.ts:113:48"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-05-25T21:24:53.511Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/runner/workspace/artifacts/mobile/test-results/profile-Profile-settings-f-e8be0-sage-submit-and-see-success-chromium-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/workspace/artifacts/mobile/test-results/profile-Profile-settings-f-e8be0-sage-submit-and-see-success-chromium-retry1/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/runner/workspace/artifacts/mobile/test-results/profile-Profile-settings-f-e8be0-sage-submit-and-see-success-chromium-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/workspace/artifacts/mobile/e2e/profile.spec.ts",
+                        "column": 48,
+                        "line": 113
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "e8b79b4ee550a37632f1-42119c6d8f4d5ecd6523",
+              "file": "profile.spec.ts",
+              "line": 88,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-05-25T21:23:40.997Z",
+    "duration": 94442.623,
+    "expected": 8,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

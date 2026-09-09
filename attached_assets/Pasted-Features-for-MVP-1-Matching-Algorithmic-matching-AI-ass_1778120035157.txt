@@ -1,0 +1,160 @@
+Features for MVP
+1. Matching
+Algorithmic matching / AI-assisted match recommendations
+Accept / Skip /Add to list (short list) system
+Undo 
+Match percentage score (based on filters/ scoring system)
+Match filters 
+Matching filters should include
+Required (3 or 4 such as budget or location, etc..) / optional (plus afterwards) 
+Same-gender-only matching
+Budget
+Move-in date
+Location / neighborhood
+Quiet vs social
+Tidiness level(s)
+Smoking/ Drinking 
+Guest rules
+Language
+Religion
+University
+2. Profiles
+Profile creation
+One required profile photo
+Public-facing roommate profile
+Bio / profile summary
+Lifestyle preferences
+Communication style
+“What matters to me” prompts
+Culture / optional personal preferences section
+Trust badges
+Edit profile
+Profile fields you likely need
+Name
+Age
+University name
+Verified university email/domain
+Budget range
+Move-in timeline
+Preferred neighborhoods
+Lifestyle tags
+Guest preferences
+Cleanliness level
+Quiet/social preference
+Smoking/drinking preference
+Optional religion/language
+Same-gender roommate preference
+3. Messaging
+Direct messaging between matched users
+Group chats
+Message inbox split into:
+Direct Messages
+Group Chats
+Suggested roommate-specific prompt chips above message box
+Messaging safety / utility features you need
+Blocking feature
+Report user feature
+Unmatch feature
+Read/unread indicators
+Notifications
+4. Housing / Groups
+Group making
+Open Housing
+New Housing / Forming Groups
+Better wording for this section
+Instead of “New Housing,” I’d call it:
+Forming Groups
+So it becomes:
+Open Rooms = existing apartment/house, looking for one more roommate
+Forming Groups = users building a roommate group first, then finding housing together
+Features inside Housing / Groups
+Create a housing listing
+Create a group listing
+Browse open rooms
+Browse forming groups
+Request to join
+View current roommate members
+See rent, move-in date, location, house rules, and tags
+Same-gender restriction
+5. Verification / Trust
+School verification
+Verified university badge
+Verified school email domain shown on profile
+Other trust features you should strongly consider
+Serious renter badge
+Completed profile badge
+Verified identity badge later, even if not MVP
+Clear roommate expectations / house rules section
+Match explanation like “Why you match”
+This part is really important because your research focused a lot on trust, seriousness, and clear profile information.
+6. Settings
+Notifications
+Theme
+Feedback system
+Other settings you should add
+Privacy settings
+Matching preferences
+Account management
+Blocked users list
+Help / support
+Delete account / deactivate account
+Features I think you still need for a strong MVP
+These are the ones I would add because they feel necessary, not just nice to have:
+7. Filters Screen
+This should probably be its own feature category, not hidden inside matching.
+Filter screen for match search
+Filter screen for housing/group search
+Save filter preferences
+8. Safety Features
+Very important for this kind of app.
+Block user
+Report user
+Same-gender enforcement
+Hide sensitive fields unless user chooses to show them
+Join request approval for housing/groups
+9. Compatibility Transparency
+Since your app is built around compatibility, users should understand why they matched.
+“Why you match” breakdown
+Compatibility score explanation
+Shared preferences highlighted
+10. Listing / Group Detail Pages
+Right now, these are implied by the prototype but should be listed as actual features.
+Open room detail page
+Forming group detail page
+Apartment photos
+Roommate previews
+House vibe / rules
+Join request flow
+Best cleaned-up MVP list
+If you want a tighter version for class, notes, or planning, I’d write it like this:
+Features for MVP
+AI-assisted matching
+Swipe / like / pass
+Match percentage
+Match filters
+Same-gender matching
+Profile creation
+Bio and lifestyle preferences
+University name and verified school email
+Optional religion/language preferences
+Trust badges
+Messaging
+Direct messaging
+Group chats
+Suggested roommate prompts
+Blocking / unmatching / reporting
+Housing and group formation
+Open Rooms
+Forming Groups
+Create listing / create group
+Request to join
+Verification and trust
+School verification
+Serious renter / completed profile badges
+Match explanation
+Settings
+Notifications
+Theme
+Feedback system
+Privacy and account settings
+

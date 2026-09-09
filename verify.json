@@ -1,0 +1,331 @@
+{
+  "config": {
+    "configFile": "/home/runner/workspace/artifacts/mobile/playwright.config.ts",
+    "rootDir": "/home/runner/workspace/artifacts/mobile/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/runner/workspace/artifacts/mobile/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/runner/workspace/artifacts/mobile/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 15000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.60.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "verify.spec.ts",
+      "file": "verify.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Verification flow",
+          "file": "verify.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [
+            {
+              "title": "verify-edu screen loads with email input step",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 15000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6653,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:23:05.199Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f7b216369e2b571fd06c-bfb1f4635a226af7d1f6",
+              "file": "verify.spec.ts",
+              "line": 9,
+              "column": 7
+            },
+            {
+              "title": "entering a .edu email transitions to OTP input screen",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 15000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Email input not visible — user may already be verified or have a pending request",
+                      "location": {
+                        "file": "/home/runner/workspace/artifacts/mobile/e2e/verify.spec.ts",
+                        "line": 26,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 5623,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:23:13.981Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "Email input not visible — user may already be verified or have a pending request",
+                          "location": {
+                            "file": "/home/runner/workspace/artifacts/mobile/e2e/verify.spec.ts",
+                            "line": 26,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f7b216369e2b571fd06c-2e6e44f7b9d5196e526f",
+              "file": "verify.spec.ts",
+              "line": 19,
+              "column": 7
+            },
+            {
+              "title": "entering a non-.edu email shows a validation error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 15000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Email input not visible — user may already be verified or have a pending request",
+                      "location": {
+                        "file": "/home/runner/workspace/artifacts/mobile/e2e/verify.spec.ts",
+                        "line": 47,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 5666,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:23:19.629Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "Email input not visible — user may already be verified or have a pending request",
+                          "location": {
+                            "file": "/home/runner/workspace/artifacts/mobile/e2e/verify.spec.ts",
+                            "line": 47,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f7b216369e2b571fd06c-00b6d523e73be9603dd8",
+              "file": "verify.spec.ts",
+              "line": 40,
+              "column": 7
+            },
+            {
+              "title": "verify nudge is visible on discover for unverified user",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 15000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Test user is already .edu-verified — verify nudge does not render",
+                      "location": {
+                        "file": "/home/runner/workspace/artifacts/mobile/e2e/verify.spec.ts",
+                        "line": 67,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 6594,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:23:25.334Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "Test user is already .edu-verified — verify nudge does not render",
+                          "location": {
+                            "file": "/home/runner/workspace/artifacts/mobile/e2e/verify.spec.ts",
+                            "line": 67,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f7b216369e2b571fd06c-49fd16bb7fd1fd2a3279",
+              "file": "verify.spec.ts",
+              "line": 58,
+              "column": 7
+            },
+            {
+              "title": "tapping the verify nudge on discover navigates to verify-edu",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 15000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Test user is already .edu-verified — verify nudge does not render",
+                      "location": {
+                        "file": "/home/runner/workspace/artifacts/mobile/e2e/verify.spec.ts",
+                        "line": 80,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 6627,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-25T21:23:31.960Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "Test user is already .edu-verified — verify nudge does not render",
+                          "location": {
+                            "file": "/home/runner/workspace/artifacts/mobile/e2e/verify.spec.ts",
+                            "line": 80,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f7b216369e2b571fd06c-31042b44b6c78c70d043",
+              "file": "verify.spec.ts",
+              "line": 73,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-05-25T21:23:03.713Z",
+    "duration": 35277.587,
+    "expected": 1,
+    "skipped": 4,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

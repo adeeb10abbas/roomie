@@ -1,0 +1,91 @@
+Update the Groups tab/page structure.
+
+
+
+I want the Groups tab to remain the main place where users browse and discover groups/future housing listings. Do not move the full Groups browsing functionality into Profile.
+
+
+
+On the Groups page, create this structure:
+
+
+
+1. Created by Me
+
+2. Joined by Me
+
+3. Browse Groups (for now/the future)
+
+
+
+The first two sections should appear above the Browse section and should be collapsible dropdown sections.
+
+
+
+Section 1: Created by Me
+
+- Show groups current user created.
+
+- This section should be collapsible.
+
+- Each item should show the group location if available, number of members if available, and basic status.
+
+- Include a button or action to open/manage the group.
+
+- Include a button or action that routes the user to that group’s messages.
+
+
+
+Section 2: Joined by Me
+
+- Show groups or future listings that the current user has joined.
+
+- This section should also be collapsible.
+
+- Each item should show the group location if available, number of members if available, and basic status.
+
+- Include a button or action to open the group.
+
+- Include a button or action that routes the user directly to that group’s messages.
+
+
+
+Section 3: Browse Groups (keep the same functionality what it is like now)
+
+- This should remain the main browsing/discovery area.
+
+- Users should still be able to view group details and join groups from this section.
+
+
+
+Important:
+
+- The Groups tab should have both “my groups” functionality and browsing functionality.
+
+- “Created by Me” and “Joined by Me” should appear above Browse.
+
+- “Created by Me” and “Joined by Me” should be collapsible dropdowns.
+
+- Browse should not be hidden inside Profile.
+
+- Group messages should still live in Messages > Groups.
+
+- From “Created by Me” or “Joined by Me,” users should be able to route directly to the correct group message thread.
+
+
+
+Acceptance criteria:
+
+- Groups tab is still in the main navigation.
+
+- Groups page has three clear sections: Created by Me, Joined by Me, and Browse.
+
+- Created by Me and Joined by Me are collapsible.
+
+- Browse section keeps group discovery functionality.
+
+- Buttons from Created by Me and Joined by Me route to the correct group messages.
+
+- Existing group creation, joining, browsing, and messaging functionality is preserved.
+
+- UI should be clean, mobile-friendly, and consistent with the Roomie app style.
